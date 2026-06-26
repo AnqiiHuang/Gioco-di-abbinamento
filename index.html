@@ -16,7 +16,7 @@
           <button id="theme-mode-toggle" type="button" class="setting-btn" data-i18n="btnDark"></button>
         </div>
       </div>
-      <p class="subtitle" data-i18n="subtitle"></p>
+      <hr class="header-divider">
     </header>
 
     <div class="mode-bar">
@@ -24,22 +24,24 @@
       <button type="button" class="mode-btn" data-mode="level" data-i18n="modeLevel"></button>
     </div>
 
-    <div id="free-panel" class="panel">
-      <div class="difficulty-bar">
+    <div id="free-panel" class="settings-section">
+      <div class="setting-row">
         <span class="panel-label" data-i18n="difficulty"></span>
-        <button type="button" class="diff-btn active" data-size="6">🌱 6×6</button>
-        <button type="button" class="diff-btn" data-size="8">🔥 8×8</button>
-        <button type="button" class="diff-btn" data-size="10">💎 10×10</button>
+        <div class="difficulty-bar">
+          <button type="button" class="diff-btn active" data-size="6">🌱 6×6</button>
+          <button type="button" class="diff-btn" data-size="8">🔥 8×8</button>
+          <button type="button" class="diff-btn" data-size="10">💎 10×10</button>
+        </div>
       </div>
     </div>
 
-    <div id="level-panel" class="panel hidden">
+    <div id="level-panel" class="settings-section hidden">
       <span class="panel-label" data-i18n="level"></span>
       <div id="level-list" class="level-list"></div>
       <p id="level-info" class="level-info"></p>
     </div>
 
-    <div class="theme-bar">
+    <div class="setting-row theme-bar">
       <label for="theme-picker" data-i18n="theme"></label>
       <select id="theme-picker">
         <option value="mixed" data-i18n="themeMixed"></option>
@@ -50,6 +52,11 @@
         <option value="sports" data-i18n="themeSports"></option>
       </select>
     </div>
+
+    <details class="how-to-play" open>
+      <summary data-i18n="howToPlayTitle"></summary>
+      <p data-i18n="howToPlayText"></p>
+    </details>
 
     <div class="stats-bar">
       <div class="stat">
@@ -70,13 +77,18 @@
       </div>
     </div>
 
-    <div class="action-bar">
-      <button id="hint-btn" type="button" data-i18n="btnHint"></button>
-      <button id="shuffle-btn" type="button" data-i18n="btnShuffle"></button>
+    <div class="action-bar primary-actions">
+      <button id="start-btn" type="button" data-i18n="btnStart"></button>
+      <button id="pause-btn" type="button" disabled data-i18n="btnPause"></button>
       <button id="restart-btn" type="button" data-i18n="btnRestart"></button>
     </div>
 
-    <div class="action-bar secondary hidden" id="win-actions">
+    <div class="action-bar hint-actions">
+      <button id="hint-btn" type="button" data-i18n="btnHint"></button>
+      <button id="shuffle-btn" type="button" data-i18n="btnShuffle"></button>
+    </div>
+
+    <div class="action-bar win-actions hidden" id="win-actions">
       <button id="next-level-btn" type="button" class="hidden" data-i18n="btnNextLevel"></button>
       <button id="retry-btn" type="button" class="hidden" data-i18n="btnRetry"></button>
     </div>

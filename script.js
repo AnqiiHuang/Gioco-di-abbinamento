@@ -2,6 +2,7 @@
 const STORAGE_KEY = "emoji_link_v1";
 
 const SCORE_PER_MATCH = 100;
+const MISMATCH_PENALTY = 20;
 const HINT_PENALTY = 30;
 const SHUFFLE_PENALTY = 20;
 const TIME_BONUS_FACTOR = 8;
@@ -103,6 +104,8 @@ let timerInterval = null;
 let isLocked = false;
 let gameWon = false;
 let gameLost = false;
+let gameStarted = false;
+let isPaused = false;
 let hintIndices = null;
 
 // ===== DOM =====
@@ -116,6 +119,8 @@ const freePanel = document.getElementById("free-panel");
 const levelPanel = document.getElementById("level-panel");
 const levelListEl = document.getElementById("level-list");
 const levelInfoEl = document.getElementById("level-info");
+const startBtn = document.getElementById("start-btn");
+const pauseBtn = document.getElementById("pause-btn");
 const restartBtn = document.getElementById("restart-btn");
 const hintBtn = document.getElementById("hint-btn");
 const shuffleBtn = document.getElementById("shuffle-btn");
@@ -288,6 +293,78 @@ function playSound(type) {
   } catch (_) {}
 }
 
+// ===== 背景音乐 =====
+let bgmTimer = null;
+let bgmMasterGain = null;
+let bgmStep = 0;
+
+const BGM_SEQUENCE = [
+  392, 440, 494, 523, 494, 440, 392, 330,
+  349, 392, 440, 392, 349, 294, 330, 294,
+  262, 294, 330, 349, 392, 349, 330, 294,
+];
+const BGM_STEP_MS = 380;
+const BGM_VOLUME = 0.05;
+
+function playBgmNote(freq) {
+  if (!audioCtx || !bgmMasterGain || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.38, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+  osc.connect(gain);
+  gain.connect(bgmMasterGain);
+  osc.start(now);
+  osc.stop(now + 0.38);
+}
+
+function scheduleBgmStep() {
+  if (!soundEnabled || !gameStarted || isPaused || gameWon || gameLost) {
+    bgmTimer = null;
+    return;
+  }
+  playBgmNote(BGM_SEQUENCE[bgmStep % BGM_SEQUENCE.length]);
+  bgmStep++;
+  bgmTimer = setTimeout(scheduleBgmStep, BGM_STEP_MS);
+}
+
+function startBgm() {
+  if (!soundEnabled || bgmTimer) return;
+  ensureAudio();
+  if (!bgmMasterGain) {
+    bgmMasterGain = audioCtx.createGain();
+    bgmMasterGain.connect(audioCtx.destination);
+  }
+  bgmMasterGain.gain.setValueAtTime(BGM_VOLUME, audioCtx.currentTime);
+  scheduleBgmStep();
+}
+
+function stopBgm() {
+  if (bgmTimer) {
+    clearTimeout(bgmTimer);
+    bgmTimer = null;
+  }
+  if (bgmMasterGain && audioCtx) {
+    bgmMasterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    bgmMasterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  }
+}
+
+function beginGame(playSelectSound = true) {
+  if (gameStarted && !isPaused) return;
+  ensureAudio();
+  gameStarted = true;
+  isPaused = false;
+  startTimer();
+  startBgm();
+  updatePlayControls();
+  if (playSelectSound && !isLocked) playSound("select");
+}
+
 // ===== UI 刷新 =====
 function refreshThemeOptions() {
   themePicker.querySelectorAll("option").forEach((opt) => {
@@ -308,7 +385,18 @@ function applyDarkMode() {
 
 function refreshBestScore() {
   const best = getHighScore(getScoreKey());
-  bestScoreEl.textContent = best ? best.score : t("bestNone");
+  bestScoreEl.textContent = best ? formatTime(best.time) : t("bestNone");
+}
+
+function updatePlayControls() {
+  const canPlay = !gameWon && !gameLost;
+  const active = gameStarted && !isPaused && canPlay && !isLocked;
+
+  startBtn.disabled = active;
+  pauseBtn.disabled = !active;
+  hintBtn.disabled = !active;
+  shuffleBtn.disabled = !active;
+  restartBtn.disabled = false;
 }
 
 function updateLevelInfo() {
@@ -396,6 +484,7 @@ function showRetryAction() {
 
 // ===== 游戏初始化 =====
 function initGame() {
+  stopBgm();
   stopTimer();
   hideWinActions();
 
@@ -414,6 +503,9 @@ function initGame() {
   isLocked = false;
   gameWon = false;
   gameLost = false;
+  gameStarted = false;
+  isPaused = false;
+  bgmStep = 0;
   hintIndices = null;
   messageEl.textContent = "";
   messageEl.classList.remove("win");
@@ -582,11 +674,11 @@ function formatTime(seconds) {
 function handleTimeUp() {
   gameLost = true;
   stopTimer();
+  stopBgm();
   playSound("fail");
   messageEl.classList.remove("win");
   messageEl.textContent = t("msgTimeUp");
-  hintBtn.disabled = true;
-  shuffleBtn.disabled = true;
+  updatePlayControls();
   showRetryAction();
 }
 
@@ -881,7 +973,6 @@ function renderBoardAnimated() {
       cell.classList.remove("cell-deal");
       cell.style.animationDelay = "";
     });
-    startTimer();
   }, duration);
 }
 
@@ -919,7 +1010,10 @@ function setSelectedVisual(index) {
 
 // ===== 交互 =====
 function handleCellClick(index) {
-  if (isLocked || gameWon || gameLost || board[index] === null) return;
+  if (isLocked || isPaused || gameWon || gameLost || board[index] === null) return;
+
+  if (!gameStarted) beginGame(false);
+
   ensureAudio();
   const cells = boardEl.querySelectorAll(".cell");
 
@@ -941,7 +1035,9 @@ function handleCellClick(index) {
   const second = index;
 
   if (board[first] !== board[second]) {
+    applyMismatchPenalty();
     playSound("mismatch");
+    messageEl.textContent = t("msgMismatch", { n: MISMATCH_PENALTY });
     cells[first].classList.add("mismatch");
     cells[second].classList.add("mismatch");
     setTimeout(() => {
@@ -949,11 +1045,13 @@ function handleCellClick(index) {
       cells[second].classList.remove("mismatch");
       selectedIndex = null;
       setSelectedVisual(null);
+      if (!gameWon && !gameLost) messageEl.textContent = "";
     }, 400);
     return;
   }
 
   if (!canConnect(board, first, second)) {
+    applyMismatchPenalty();
     playSound("mismatch");
     messageEl.textContent = t("msgPathBlocked");
     cells[first].classList.add("mismatch");
@@ -972,8 +1070,14 @@ function handleCellClick(index) {
   eliminatePair(first, second);
 }
 
+function applyMismatchPenalty() {
+  score = Math.max(0, score - MISMATCH_PENALTY);
+  scoreEl.textContent = score;
+}
+
 function eliminatePair(first, second) {
   isLocked = true;
+  updatePlayControls();
   selectedIndex = null;
   setSelectedVisual(null);
   clearHint();
@@ -996,7 +1100,7 @@ function eliminatePair(first, second) {
 }
 
 function showHint() {
-  if (isLocked || gameWon || gameLost) return;
+  if (isLocked || isPaused || !gameStarted || gameWon || gameLost) return;
   ensureAudio();
   const pair = findHintPair();
   if (!pair) {
@@ -1020,7 +1124,7 @@ function clearHint() {
 }
 
 function shuffleRemaining() {
-  if (isLocked || gameWon || gameLost) return;
+  if (isLocked || isPaused || !gameStarted || gameWon || gameLost) return;
   ensureAudio();
 
   const indices = [];
@@ -1038,7 +1142,7 @@ function shuffleRemaining() {
   }
 
   isLocked = true;
-  shuffleBtn.disabled = true;
+  updatePlayControls();
 
   let success = false;
   const snapshot = indices.map((idx) => board[idx]);
@@ -1061,7 +1165,7 @@ function shuffleRemaining() {
 
   if (!success) {
     isLocked = false;
-    shuffleBtn.disabled = false;
+    updatePlayControls();
     messageEl.textContent = t("msgShuffleFail");
     return;
   }
@@ -1077,7 +1181,7 @@ function shuffleRemaining() {
   setTimeout(() => {
     boardEl.classList.remove("shuffling");
     isLocked = false;
-    shuffleBtn.disabled = gameWon || gameLost;
+    updatePlayControls();
     messageEl.textContent = t("msgShuffled", { n: SHUFFLE_PENALTY });
     checkDeadlock();
   }, 450);
@@ -1088,9 +1192,7 @@ function updateUI() {
   scoreEl.textContent = score;
   updateTimerDisplay();
   refreshBestScore();
-  hintBtn.disabled = gameWon || gameLost;
-  shuffleBtn.disabled = gameWon || gameLost;
-  restartBtn.disabled = false;
+  updatePlayControls();
 }
 
 function checkWin() {
@@ -1098,6 +1200,7 @@ function checkWin() {
 
   gameWon = true;
   stopTimer();
+  stopBgm();
 
   const timeUsed = countdownRemaining !== null
     ? getCurrentLevel().timeLimit - countdownRemaining
@@ -1135,8 +1238,7 @@ function checkWin() {
       (isNewRecord ? " " + t("msgNewRecord") : "");
   }
 
-  hintBtn.disabled = true;
-  shuffleBtn.disabled = true;
+  updatePlayControls();
 }
 
 function checkDeadlock() {
@@ -1171,12 +1273,26 @@ function handleBoardClick(event) {
 
 boardEl.addEventListener("click", handleBoardClick);
 
+function handleStart() {
+  beginGame();
+}
+
+function handlePause() {
+  if (!gameStarted || isPaused || gameWon || gameLost) return;
+  isPaused = true;
+  stopTimer();
+  stopBgm();
+  updatePlayControls();
+}
+
 function handleRestart() {
   ensureAudio();
   playSound("restart");
   initGame();
 }
 
+startBtn.addEventListener("click", handleStart);
+pauseBtn.addEventListener("click", handlePause);
 restartBtn.addEventListener("click", handleRestart);
 hintBtn.addEventListener("click", showHint);
 shuffleBtn.addEventListener("click", shuffleRemaining);
@@ -1200,7 +1316,12 @@ soundToggle.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   updateSoundToggle();
   saveSettings();
-  if (soundEnabled) playSound("select");
+  if (soundEnabled) {
+    playSound("select");
+    if (gameStarted && !isPaused && !gameWon && !gameLost) startBgm();
+  } else {
+    stopBgm();
+  }
 });
 
 themeModeToggle.addEventListener("click", () => {
