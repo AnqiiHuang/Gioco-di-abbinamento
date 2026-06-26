@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emoji Collega</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container" class="game-container">
+    <header class="game-header">
+      <div class="top-bar">
+        <h1 data-i18n="title"></h1>
+        <div class="settings-bar">
+          <button id="sound-toggle" type="button" class="setting-btn" data-i18n="soundOn"></button>
+          <button id="theme-mode-toggle" type="button" class="setting-btn" data-i18n="btnDark"></button>
+        </div>
+      </div>
+      <p class="subtitle" data-i18n="subtitle"></p>
+    </header>
+
+    <div class="mode-bar">
+      <button type="button" class="mode-btn active" data-mode="free" data-i18n="modeFree"></button>
+      <button type="button" class="mode-btn" data-mode="level" data-i18n="modeLevel"></button>
+    </div>
+
+    <div id="free-panel" class="panel">
+      <div class="difficulty-bar">
+        <span class="panel-label" data-i18n="difficulty"></span>
+        <button type="button" class="diff-btn active" data-size="6">🌱 6×6</button>
+        <button type="button" class="diff-btn" data-size="8">🔥 8×8</button>
+      </div>
+    </div>
+
+    <div id="level-panel" class="panel hidden">
+      <span class="panel-label" data-i18n="level"></span>
+      <div id="level-list" class="level-list"></div>
+      <p id="level-info" class="level-info"></p>
+    </div>
+
+    <div class="theme-bar">
+      <label for="theme-picker" data-i18n="theme"></label>
+      <select id="theme-picker">
+        <option value="mixed" data-i18n="themeMixed"></option>
+        <option value="fruit" data-i18n="themeFruit"></option>
+        <option value="animals" data-i18n="themeAnimals"></option>
+        <option value="sweets" data-i18n="themeSweets"></option>
+        <option value="nature" data-i18n="themeNature"></option>
+        <option value="sports" data-i18n="themeSports"></option>
+      </select>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-label" data-i18n="statTime"></span>
+        <span id="timer" class="stat-value">00:00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label" data-i18n="statScore"></span>
+        <span id="score" class="stat-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label" data-i18n="statRemaining"></span>
+        <span id="remaining" class="stat-value">36</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label" data-i18n="statBest"></span>
+        <span id="best-score" class="stat-value">—</span>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button id="hint-btn" type="button" data-i18n="btnHint"></button>
+      <button id="shuffle-btn" type="button" data-i18n="btnShuffle"></button>
+      <button id="restart-btn" type="button" data-i18n="btnRestart"></button>
+    </div>
+
+    <div class="action-bar secondary hidden" id="win-actions">
+      <button id="next-level-btn" type="button" class="hidden" data-i18n="btnNextLevel"></button>
+      <button id="retry-btn" type="button" class="hidden" data-i18n="btnRetry"></button>
+    </div>
+
+    <div class="board-wrapper">
+      <div id="board" class="board size-6"></div>
+      <svg id="path-line" class="path-line" aria-hidden="true"></svg>
+    </div>
+
+    <p id="message" class="message"></p>
+  </div>
+
+  <script src="i18n.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
