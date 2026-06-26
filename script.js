@@ -73,7 +73,7 @@ let currentLevelId = 1;
 let currentTheme = "mixed";
 let unlockedLevel = 1;
 let highScores = {};
-let audioEnabled = true;
+let soundEnabled = true;
 let darkMode = false;
 
 let board = [];
@@ -81,21 +81,17 @@ let selectedIndex = null;
 let score = 0;
 let elapsedSeconds = 0;
 let countdownRemaining = null;
-let timerRafId = null;
-let timerActive = false;
-let timerLastFrame = 0;
-let timerAccumulator = 0;
+let timerInterval = null;
 let isLocked = false;
 let gameWon = false;
 let gameLost = false;
 let hintIndices = null;
-let boardAnimTimer = null;
 
 // ===== DOM =====
 const gameContainer = document.getElementById("game-container");
 const boardEl = document.getElementById("board");
 const pathLineEl = document.getElementById("path-line");
-const audioToggle = document.getElementById("audio-toggle");
+const soundToggle = document.getElementById("sound-toggle");
 const themeModeToggle = document.getElementById("theme-mode-toggle");
 const themePicker = document.getElementById("theme-picker");
 const freePanel = document.getElementById("free-panel");
@@ -156,13 +152,7 @@ function loadSettings() {
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     if (data.theme && THEMES[data.theme]) currentTheme = data.theme;
-    if (typeof data.audioEnabled === "boolean") {
-      audioEnabled = data.audioEnabled;
-    } else {
-      const sound = typeof data.soundEnabled === "boolean" ? data.soundEnabled : true;
-      const music = typeof data.musicEnabled === "boolean" ? data.musicEnabled : true;
-      audioEnabled = sound && music;
-    }
+    if (typeof data.soundEnabled === "boolean") soundEnabled = data.soundEnabled;
     if (typeof data.darkMode === "boolean") darkMode = data.darkMode;
     if (data.gameMode) gameMode = data.gameMode;
     if (data.unlockedLevel) unlockedLevel = data.unlockedLevel;
@@ -178,7 +168,7 @@ function saveSettings() {
     STORAGE_KEY,
     JSON.stringify({
       theme: currentTheme,
-      audioEnabled,
+      soundEnabled,
       darkMode,
       gameMode,
       unlockedLevel,
@@ -206,127 +196,14 @@ function saveHighScore(key, newScore, time) {
   return false;
 }
 
-// ===== 音效与背景音乐 =====
+// ===== 音效 =====
 let audioCtx = null;
-let bgmGain = null;
-let bgmPlaying = false;
-let bgmLoopTimer = null;
-
-const BGM_BPM = 88;
-const BGM_BEAT = 60 / BGM_BPM;
-const BGM_VOLUME = 0.07;
-const BGM_PROGRESSION = [
-  { freqs: [261.63, 329.63, 392.0], mel: 523.25 },
-  { freqs: [220.0, 261.63, 329.63], mel: 440.0 },
-  { freqs: [174.61, 220.0, 261.63], mel: 392.0 },
-  { freqs: [196.0, 246.94, 293.66], mel: 440.0 },
-  { freqs: [261.63, 329.63, 392.0], mel: 587.33 },
-  { freqs: [220.0, 261.63, 329.63], mel: 523.25 },
-  { freqs: [174.61, 220.0, 261.63], mel: 349.23 },
-  { freqs: [196.0, 246.94, 293.66], mel: 392.0 },
-];
 
 function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
   if (audioCtx.state === "suspended") audioCtx.resume();
-  if (audioEnabled && !bgmPlaying && !document.hidden) startBgm();
-}
-
-function ensureBgmGain() {
-  ensureAudio();
-  if (!bgmGain) {
-    bgmGain = audioCtx.createGain();
-    bgmGain.gain.value = BGM_VOLUME;
-    bgmGain.connect(audioCtx.destination);
-  }
-}
-
-function playBgmChord(freqs, startTime, duration) {
-  freqs.forEach((freq) => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = "triangle";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.045, startTime + 0.12);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(gain);
-    gain.connect(bgmGain);
-    osc.start(startTime);
-    osc.stop(startTime + duration + 0.05);
-  });
-}
-
-function playBgmMelody(freq, startTime, duration) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0, startTime);
-  gain.gain.linearRampToValueAtTime(0.035, startTime + 0.04);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-  osc.connect(gain);
-  gain.connect(bgmGain);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.05);
-}
-
-function scheduleBgmLoop() {
-  if (!audioEnabled || !bgmPlaying || !audioCtx) return;
-
-  const start = audioCtx.currentTime + 0.05;
-  const stepDuration = BGM_BEAT * 2;
-
-  BGM_PROGRESSION.forEach((step, i) => {
-    const time = start + i * stepDuration;
-    playBgmChord(step.freqs, time, stepDuration * 0.92);
-    playBgmMelody(step.mel, time + BGM_BEAT * 0.35, BGM_BEAT * 1.1);
-  });
-
-  const loopMs = BGM_PROGRESSION.length * stepDuration * 1000;
-  bgmLoopTimer = setTimeout(scheduleBgmLoop, loopMs - 120);
-}
-
-function startBgm() {
-  if (!audioEnabled || bgmPlaying || document.hidden) return;
-  ensureBgmGain();
-  bgmPlaying = true;
-  bgmGain.gain.setValueAtTime(BGM_VOLUME, audioCtx.currentTime);
-  scheduleBgmLoop();
-}
-
-function stopBgm() {
-  bgmPlaying = false;
-  if (bgmLoopTimer) {
-    clearTimeout(bgmLoopTimer);
-    bgmLoopTimer = null;
-  }
-  if (bgmGain && audioCtx) {
-    bgmGain.gain.setValueAtTime(0, audioCtx.currentTime);
-  }
-}
-
-function pauseBgm() {
-  if (bgmGain && audioCtx) {
-    bgmGain.gain.setValueAtTime(0, audioCtx.currentTime);
-  }
-}
-
-function resumeBgm() {
-  if (!audioEnabled || !bgmPlaying) return;
-  if (bgmGain && audioCtx) {
-    bgmGain.gain.setValueAtTime(BGM_VOLUME, audioCtx.currentTime);
-  }
-}
-
-function duckBgm() {
-  if (!bgmGain || !audioCtx || !bgmPlaying) return;
-  const now = audioCtx.currentTime;
-  bgmGain.gain.cancelScheduledValues(now);
-  bgmGain.gain.setValueAtTime(BGM_VOLUME * 0.35, now);
-  bgmGain.gain.linearRampToValueAtTime(BGM_VOLUME, now + 0.35);
 }
 
 function cuteBoop(startFreq, endFreq, duration, volume = 0.12, wave = "sine", delay = 0) {
@@ -362,10 +239,9 @@ function cuteNote(freq, duration, volume = 0.1, wave = "sine", delay = 0) {
 }
 
 function playSound(type) {
-  if (!audioEnabled) return;
+  if (!soundEnabled) return;
   try {
     ensureAudio();
-    duckBgm();
     if (type === "select") cuteBoop(380, 620, 0.07, 0.1);
     else if (type === "match") {
       cuteNote(523, 0.1, 0.11, "sine", 0);
@@ -396,9 +272,9 @@ function refreshThemeOptions() {
   });
 }
 
-function updateAudioToggle() {
-  audioToggle.textContent = audioEnabled ? t("audioOn") : t("audioOff");
-  audioToggle.setAttribute("aria-pressed", audioEnabled);
+function updateSoundToggle() {
+  soundToggle.textContent = soundEnabled ? t("soundOn") : t("soundOff");
+  soundToggle.setAttribute("aria-pressed", soundEnabled);
 }
 
 function applyDarkMode() {
@@ -495,20 +371,10 @@ function showRetryAction() {
   retryBtn.classList.remove("hidden");
 }
 
-function clearBoardAnimTimer() {
-  if (boardAnimTimer !== null) {
-    clearTimeout(boardAnimTimer);
-    boardAnimTimer = null;
-  }
-}
-
 // ===== 游戏初始化 =====
 function initGame() {
   stopTimer();
-  clearBoardAnimTimer();
   hideWinActions();
-  boardEl.innerHTML = "";
-  boardEl.classList.remove("board-dealing", "shuffling");
 
   if (gameMode === "level") {
     gridSize = getCurrentLevel().grid;
@@ -535,91 +401,35 @@ function initGame() {
 }
 
 function applyGridSize() {
-  gameContainer.classList.add("layout-instant");
+  boardEl.className = `board size-${gridSize}`;
   gameContainer.classList.remove("size-8", "size-10");
   if (gridSize === 8) gameContainer.classList.add("size-8");
   if (gridSize === 10) gameContainer.classList.add("size-10");
-
-  boardEl.className = `board size-${gridSize} layout-instant`;
-}
-
-function createSpacedTemplateBoard(uniqueEmojis, slots = null) {
-  const board = new Array(getTotalCells()).fill(null);
-  const halfCols = gridSize / 2;
-  const emojis = shuffleArray(uniqueEmojis);
-
-  if (!slots) {
-    emojis.forEach((emoji, i) => {
-      const row = i % gridSize;
-      const colPair = Math.floor(i / gridSize);
-      board[row * gridSize + colPair] = emoji;
-      board[row * gridSize + colPair + halfCols] = emoji;
-    });
-    return board;
-  }
-
-  const byRow = new Map();
-  slots.forEach((idx) => {
-    const row = Math.floor(idx / gridSize);
-    if (!byRow.has(row)) byRow.set(row, []);
-    byRow.get(row).push(idx);
-  });
-  byRow.forEach((rowSlots) => {
-    rowSlots.sort((a, b) => (a % gridSize) - (b % gridSize));
-  });
-
-  let emojiIdx = 0;
-  [...byRow.keys()].sort((a, b) => a - b).forEach((row) => {
-    const rowSlots = byRow.get(row);
-    const pairCount = Math.floor(rowSlots.length / 2);
-    for (let p = 0; p < pairCount && emojiIdx < emojis.length; p++) {
-      const emoji = emojis[emojiIdx++];
-      board[rowSlots[p]] = emoji;
-      board[rowSlots[p + pairCount]] = emoji;
-    }
-  });
-
-  return board;
-}
-
-function scrambleSolvableBoard(boardData, budgetMs) {
-  let board = [...boardData];
-  const deadline = Date.now() + budgetMs;
-  const memo = new Map();
-
-  while (Date.now() < deadline) {
-    const i = Math.floor(Math.random() * board.length);
-    let j = Math.floor(Math.random() * board.length);
-    while (j === i) j = Math.floor(Math.random() * board.length);
-    if (board[i] === board[j]) continue;
-
-    const next = [...board];
-    [next[i], next[j]] = [next[j], next[i]];
-    memo.clear();
-    if (isFullySolvable(next, memo, deadline)) board = next;
-  }
-
-  return board;
 }
 
 function createShuffledBoard() {
   const emojis = getActiveEmojis();
   const pairCount = getTotalCells() / 2;
-  const uniqueEmojis = emojis.slice(0, pairCount);
   const pairs = [];
   for (let i = 0; i < pairCount; i++) {
-    pairs.push(uniqueEmojis[i], uniqueEmojis[i]);
+    const emoji = emojis[i];
+    pairs.push(emoji, emoji);
   }
 
-  const maxQuickAttempts = gridSize >= 10 ? 20 : gridSize >= 8 ? 60 : 120;
-  for (let attempt = 0; attempt < maxQuickAttempts; attempt++) {
+  const maxAttempts = gridSize === 10 ? 300 : gridSize === 8 ? 200 : 120;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const candidate = shuffleArray(pairs);
     if (isFullySolvable(candidate)) return candidate;
   }
 
-  let board = createSpacedTemplateBoard(uniqueEmojis);
-  const scrambleMs = gridSize >= 10 ? 1200 : gridSize >= 8 ? 600 : 0;
-  if (scrambleMs > 0) board = scrambleSolvableBoard(board, scrambleMs);
+  return createAdjacentPairBoard(pairs);
+}
+
+function createAdjacentPairBoard(pairs) {
+  const board = new Array(getTotalCells()).fill(null);
+  pairs.forEach((emoji, i) => {
+    board[i] = emoji;
+  });
   return board;
 }
 
@@ -633,57 +443,25 @@ function shuffleArray(array) {
 }
 
 // ===== 计时器 =====
-function isTimerPaused() {
-  return document.hidden || isLocked || gameWon || gameLost;
-}
-
 function startTimer() {
-  stopTimer();
-  timerActive = true;
-  timerLastFrame = performance.now();
-  timerAccumulator = 0;
   updateTimerDisplay();
-  timerRafId = requestAnimationFrame(tickTimer);
-  if (audioEnabled) startBgm();
-}
-
-function tickTimer(now) {
-  if (!timerActive) return;
-
-  if (isTimerPaused()) {
-    timerLastFrame = now;
-    timerRafId = requestAnimationFrame(tickTimer);
-    return;
-  }
-
-  const delta = now - timerLastFrame;
-  timerLastFrame = now;
-  timerAccumulator += delta;
-
-  while (timerAccumulator >= 1000) {
-    timerAccumulator -= 1000;
+  timerInterval = setInterval(() => {
+    if (gameWon || gameLost) return;
     if (countdownRemaining !== null) {
       countdownRemaining--;
-      if (countdownRemaining <= 0) {
-        updateTimerDisplay();
-        handleTimeUp();
-        return;
-      }
+      updateTimerDisplay();
+      if (countdownRemaining <= 0) handleTimeUp();
     } else {
       elapsedSeconds++;
+      updateTimerDisplay();
     }
-    updateTimerDisplay();
-  }
-
-  timerRafId = requestAnimationFrame(tickTimer);
+  }, 1000);
 }
 
 function stopTimer() {
-  timerActive = false;
-  timerAccumulator = 0;
-  if (timerRafId !== null) {
-    cancelAnimationFrame(timerRafId);
-    timerRafId = null;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
   }
 }
 
@@ -897,9 +675,7 @@ function boardKey(boardData) {
   return boardData.map((cell) => cell ?? ".").join("|");
 }
 
-function isFullySolvable(boardData, memo = new Map(), deadline = Infinity) {
-  if (Date.now() > deadline) return false;
-
+function isFullySolvable(boardData, memo = new Map()) {
   const key = boardKey(boardData);
   if (memo.has(key)) return memo.get(key);
 
@@ -914,7 +690,7 @@ function isFullySolvable(boardData, memo = new Map(), deadline = Infinity) {
     const next = [...boardData];
     next[i] = null;
     next[j] = null;
-    if (isFullySolvable(next, memo, deadline)) {
+    if (isFullySolvable(next, memo)) {
       memo.set(key, true);
       return true;
     }
@@ -988,7 +764,10 @@ function renderBoard() {
   });
 }
 
-function startBoardDealAnimation() {
+function renderBoardAnimated() {
+  isLocked = true;
+  renderBoard();
+
   const cells = [...boardEl.querySelectorAll(".cell:not(.empty)")];
   boardEl.classList.add("board-dealing");
 
@@ -1000,8 +779,7 @@ function startBoardDealAnimation() {
   });
 
   const duration = cells.length * delayStep + 380;
-  boardAnimTimer = setTimeout(() => {
-    boardAnimTimer = null;
+  setTimeout(() => {
     boardEl.classList.remove("board-dealing");
     cells.forEach((cell) => {
       cell.classList.remove("cell-deal");
@@ -1010,22 +788,6 @@ function startBoardDealAnimation() {
     isLocked = false;
     startTimer();
   }, duration);
-}
-
-function renderBoardAnimated() {
-  isLocked = true;
-  boardEl.classList.add("board-preparing");
-  renderBoard();
-  void boardEl.offsetHeight;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      boardEl.classList.remove("board-preparing");
-      gameContainer.classList.remove("layout-instant");
-      boardEl.classList.remove("layout-instant");
-      startBoardDealAnimation();
-    });
-  });
 }
 
 function drawPath(i1, i2) {
@@ -1184,29 +946,12 @@ function shuffleRemaining() {
   shuffleBtn.disabled = true;
 
   let success = false;
-  const uniqueEmojis = [...new Set(emojis)];
-  const maxQuickAttempts = gridSize >= 10 ? 20 : 40;
-  for (let attempt = 0; attempt < maxQuickAttempts; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const shuffled = shuffleArray(emojis);
     indices.forEach((idx, i) => { board[idx] = shuffled[i]; });
     if (isFullySolvable(board)) {
       success = true;
       break;
-    }
-  }
-
-  if (!success) {
-    const template = createSpacedTemplateBoard(uniqueEmojis, indices);
-    indices.forEach((idx) => { board[idx] = template[idx]; });
-    if (isFullySolvable(board)) {
-      success = true;
-    } else {
-      const scrambled = scrambleSolvableBoard(
-        [...board],
-        gridSize >= 10 ? 800 : 400
-      );
-      board.splice(0, board.length, ...scrambled);
-      success = isFullySolvable(board);
     }
   }
 
@@ -1337,25 +1082,11 @@ diffBtns.forEach((btn) => {
   });
 });
 
-audioToggle.addEventListener("click", () => {
-  ensureAudio();
-  audioEnabled = !audioEnabled;
-  updateAudioToggle();
+soundToggle.addEventListener("click", () => {
+  soundEnabled = !soundEnabled;
+  updateSoundToggle();
   saveSettings();
-  if (audioEnabled) {
-    playSound("select");
-    startBgm();
-  } else {
-    stopBgm();
-  }
-});
-
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    pauseBgm();
-  } else if (audioEnabled && bgmPlaying) {
-    resumeBgm();
-  }
+  if (soundEnabled) playSound("select");
 });
 
 themeModeToggle.addEventListener("click", () => {
@@ -1384,7 +1115,7 @@ levelPanel.classList.toggle("hidden", gameMode !== "level");
 
 applyI18n();
 refreshThemeOptions();
-updateAudioToggle();
+updateSoundToggle();
 applyDarkMode();
 renderLevelList();
 
