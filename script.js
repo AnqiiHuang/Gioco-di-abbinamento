@@ -18,36 +18,54 @@ const THEMES = {
     "🐶", "🐱", "🐭", "🐰", "🦊", "🐻", "🐼", "🐨",
     "⚽", "🏀", "🎾", "🎸", "🎨", "🚀", "🌈", "⭐",
     "🍪", "🧁", "🍩", "🎈", "🦋", "🌸", "🍭", "💎",
+    "🐹", "🐯", "🦁", "🍉", "🍌", "🎹", "🏈", "🎳",
+    "🎯", "🎲", "🧩", "🪁", "🛸", "🌺", "🌻", "🎤",
+    "🎧", "🏆",
   ],
   fruit: [
     "🍎", "🍊", "🍋", "🍇", "🍓", "🍑", "🍒", "🥝",
     "🍉", "🍌", "🥭", "🍍", "🥥", "🫐", "🍈", "🍏",
     "🍅", "🥑", "🌽", "🥕", "🫑", "🥒", "🍆", "🥦",
     "🧄", "🧅", "🥔", "🍠", "🫛", "🌶️", "🍄", "🥜",
+    "🍐", "🫒", "🥬", "🫚", "🌰", "🫘", "🥗", "🍱",
+    "🍙", "🍚", "🍲", "🍛", "🍜", "🥟", "🥠", "🫙",
+    "🧃", "🍹",
   ],
   animals: [
     "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
     "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔",
     "🐧", "🐦", "🐤", "🦆", "🦅", "🦉", "🐝", "🦋",
     "🐌", "🐞", "🐢", "🐍", "🦎", "🐙", "🐠", "🐬",
+    "🦈", "🐋", "🦭", "🐡", "🦐", "🦞", "🦀", "🐊",
+    "🦛", "🦏", "🐘", "🦒", "🦘", "🐪", "🦬", "🐐",
+    "🦙", "🐿️",
   ],
   sweets: [
     "🍪", "🧁", "🍩", "🍰", "🎂", "🍫", "🍬", "🍭",
     "🍮", "🍯", "🧇", "🥞", "🍦", "🍧", "🍨", "🍡",
     "🥧", "🍢", "🍥", "🧋", "☕", "🍵", "🧃", "🥤",
     "🍹", "🍸", "🍷", "🍾", "🥛", "🍼", "🍱", "🍘",
+    "🥐", "🥖", "🥨", "🫓", "🥯", "🧀", "🍳", "🥚",
+    "🥮", "🍿", "🧈", "🫔", "🧉", "🫖", "🍚", "🍙",
+    "🍛", "🍜",
   ],
   nature: [
     "🌸", "🌺", "🌻", "🌹", "🌷", "🌼", "💐", "🪻",
     "🌲", "🌳", "🌴", "🌵", "🍀", "🍁", "🍂", "🍃",
     "🌈", "⭐", "🌙", "☀️", "⛅", "🌊", "🏔️", "🌋",
     "🦋", "🐝", "🐞", "🌧️", "❄️", "🔥", "💧", "🌍",
+    "🪨", "🪵", "🌾", "🌿", "☘️", "🪴", "🌱", "⛰️",
+    "🏕️", "🏜️", "🏝️", "🌫️", "🌩️", "⚡", "🌅", "🌄",
+    "🌀", "🌪️",
   ],
   sports: [
     "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱",
     "🏓", "🏸", "🥊", "🥋", "⛳", "🏹", "🎣", "🤿",
     "🛹", "🛼", "⛸️", "🎿", "🏂", "🪂", "🏋️", "🤸",
     "🚴", "🏊", "🤽", "🧗", "🏇", "🤺", "⛷️", "🏆",
+    "🥎", "🏏", "🪃", "🥏", "🪀", "🏑", "🥍", "🛷",
+    "🏄", "🚵", "🤾", "🏌️", "🧘", "🤼", "🎳", "🥌",
+    "🎯", "🎮",
   ],
 };
 
@@ -119,14 +137,19 @@ function getTotalCells() {
 function getActiveEmojis() {
   const base = THEMES[currentTheme] || THEMES.mixed;
   const needed = getTotalCells() / 2;
-  if (base.length >= needed) return base.slice(0, needed);
+  const unique = [...new Set(base)];
 
-  const combined = [...base];
+  if (unique.length >= needed) {
+    return shuffleArray(unique).slice(0, needed);
+  }
+
+  const combined = [...unique];
   for (const emoji of BONUS_EMOJIS) {
     if (combined.length >= needed) break;
     if (!combined.includes(emoji)) combined.push(emoji);
   }
-  return combined.slice(0, needed);
+
+  return shuffleArray(combined).slice(0, needed);
 }
 
 function getBoardLayout() {
@@ -407,6 +430,96 @@ function applyGridSize() {
   if (gridSize === 10) gameContainer.classList.add("size-10");
 }
 
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function hasGreedySolution(boardData, attempts = 4) {
+  const guardLimit = boardData.length + 10;
+  for (let a = 0; a < attempts; a++) {
+    const trial = [...boardData];
+    let guard = guardLimit;
+    while (guard-- > 0) {
+      if (trial.every((cell) => cell === null)) return true;
+      const pairs = getAllConnectablePairs(trial);
+      if (!pairs.length) break;
+      const [i, j] = pairs[Math.floor(Math.random() * pairs.length)];
+      trial[i] = null;
+      trial[j] = null;
+    }
+  }
+  return false;
+}
+
+function findAdjacentSamePairs(boardData) {
+  const pairs = [];
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize - 1; c++) {
+      const i = r * gridSize + c;
+      const j = i + 1;
+      if (boardData[i] !== null && boardData[i] === boardData[j]) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+  for (let r = 0; r < gridSize - 1; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      const i = r * gridSize + c;
+      const j = i + gridSize;
+      if (boardData[i] !== null && boardData[i] === boardData[j]) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+  return pairs;
+}
+
+function createSequentialPairBoard(pairs) {
+  const board = new Array(getTotalCells()).fill(null);
+  pairs.forEach((emoji, i) => {
+    board[i] = emoji;
+  });
+  return board;
+}
+
+function scatterSolvableBoard(initialBoard, budgetMs) {
+  const board = [...initialBoard];
+  const total = board.length;
+  const deadline = Date.now() + budgetMs;
+
+  while (Date.now() < deadline) {
+    const adjacent = findAdjacentSamePairs(board);
+    let i;
+    let j;
+    if (adjacent.length > 0 && Math.random() < 0.75) {
+      const pair = adjacent[Math.floor(Math.random() * adjacent.length)];
+      i = pair[Math.random() < 0.5 ? 0 : 1];
+      j = Math.floor(Math.random() * total);
+    } else {
+      i = Math.floor(Math.random() * total);
+      j = Math.floor(Math.random() * total);
+    }
+    if (i === j || board[i] === null || board[j] === null || board[i] === board[j]) continue;
+
+    const savedI = board[i];
+    const savedJ = board[j];
+    board[i] = savedJ;
+    board[j] = savedI;
+
+    if (hasGreedySolution(board)) continue;
+
+    board[i] = savedI;
+    board[j] = savedJ;
+  }
+
+  return board;
+}
+
 function createShuffledBoard() {
   const emojis = getActiveEmojis();
   const pairCount = getTotalCells() / 2;
@@ -416,30 +529,15 @@ function createShuffledBoard() {
     pairs.push(emoji, emoji);
   }
 
-  const maxAttempts = gridSize === 10 ? 300 : gridSize === 8 ? 200 : 120;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const candidate = shuffleArray(pairs);
-    if (isFullySolvable(candidate)) return candidate;
+  if (gridSize <= 6) {
+    for (let attempt = 0; attempt < 120; attempt++) {
+      const candidate = shuffleArray(pairs);
+      if (isFullySolvable(candidate) || hasGreedySolution(candidate)) return candidate;
+    }
   }
 
-  return createAdjacentPairBoard(pairs);
-}
-
-function createAdjacentPairBoard(pairs) {
-  const board = new Array(getTotalCells()).fill(null);
-  pairs.forEach((emoji, i) => {
-    board[i] = emoji;
-  });
-  return board;
-}
-
-function shuffleArray(array) {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+  const scatterBudget = gridSize >= 10 ? 900 : gridSize >= 8 ? 650 : 450;
+  return scatterSolvableBoard(createSequentialPairBoard(pairs), scatterBudget);
 }
 
 // ===== 计时器 =====
@@ -520,7 +618,7 @@ function lineClearVerticalBetween(boardData, col, r1, r2) {
   const minR = Math.min(r1, r2);
   const maxR = Math.max(r1, r2);
   for (let r = minR + 1; r < maxR; r++) {
-    if (!isPassable(boardData, col, r)) return false;
+    if (!isPassable(boardData, r, col)) return false;
   }
   return true;
 }
@@ -758,14 +856,12 @@ function renderBoard() {
     } else {
       cell.textContent = emoji;
       if (hintIndices && hintIndices.includes(index)) cell.classList.add("hint");
-      cell.addEventListener("click", () => handleCellClick(index));
     }
     boardEl.appendChild(cell);
   });
 }
 
 function renderBoardAnimated() {
-  isLocked = true;
   renderBoard();
 
   const cells = [...boardEl.querySelectorAll(".cell:not(.empty)")];
@@ -785,7 +881,6 @@ function renderBoardAnimated() {
       cell.classList.remove("cell-deal");
       cell.style.animationDelay = "";
     });
-    isLocked = false;
     startTimer();
   }, duration);
 }
@@ -946,13 +1041,22 @@ function shuffleRemaining() {
   shuffleBtn.disabled = true;
 
   let success = false;
+  const snapshot = indices.map((idx) => board[idx]);
+
   for (let attempt = 0; attempt < 80; attempt++) {
-    const shuffled = shuffleArray(emojis);
+    const shuffled = shuffleArray(snapshot);
     indices.forEach((idx, i) => { board[idx] = shuffled[i]; });
-    if (isFullySolvable(board)) {
+    if (hasGreedySolution(board) || isFullySolvable(board)) {
       success = true;
       break;
     }
+  }
+
+  if (!success) {
+    indices.forEach((idx, i) => { board[idx] = snapshot[i]; });
+    const budget = gridSize >= 10 ? 700 : gridSize >= 8 ? 500 : 350;
+    scatterSolvableBoard(board, budget);
+    success = hasGreedySolution(board);
   }
 
   if (!success) {
@@ -1057,6 +1161,16 @@ function goNextLevel() {
 }
 
 // ===== 事件 =====
+function handleBoardClick(event) {
+  const cell = event.target.closest(".cell:not(.empty)");
+  if (!cell || !boardEl.contains(cell)) return;
+  const index = Number(cell.dataset.index);
+  if (!Number.isFinite(index)) return;
+  handleCellClick(index);
+}
+
+boardEl.addEventListener("click", handleBoardClick);
+
 function handleRestart() {
   ensureAudio();
   playSound("restart");

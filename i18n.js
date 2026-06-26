@@ -48,7 +48,7 @@ const TEXT = {
 function t(key, params = {}) {
   let str = TEXT[key] || key;
   Object.keys(params).forEach((k) => {
-    str = str.replaceAll(`{${k}}`, String(params[k]));
+    str = str.split(`{${k}}`).join(String(params[k]));
   });
   return str;
 }
