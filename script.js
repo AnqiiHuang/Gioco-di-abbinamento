@@ -6,6 +6,12 @@ const HINT_PENALTY = 30;
 const SHUFFLE_PENALTY = 20;
 const TIME_BONUS_FACTOR = 8;
 
+const BONUS_EMOJIS = [
+  "🎯", "🎪", "🎭", "🎬", "🎤", "🎧", "🎼", "🎹",
+  "🥇", "🎖️", "🏅", "🎗️", "🎁", "🎀", "🎊", "🎉",
+  "✨", "💫", "🔮", "🪄", "🔔", "🎵", "🃏", "🀄",
+];
+
 const THEMES = {
   mixed: [
     "🍎", "🍊", "🍋", "🍇", "🍓", "🍑", "🍒", "🥝",
@@ -111,7 +117,22 @@ function getTotalCells() {
 }
 
 function getActiveEmojis() {
-  return THEMES[currentTheme] || THEMES.mixed;
+  const base = THEMES[currentTheme] || THEMES.mixed;
+  const needed = getTotalCells() / 2;
+  if (base.length >= needed) return base.slice(0, needed);
+
+  const combined = [...base];
+  for (const emoji of BONUS_EMOJIS) {
+    if (combined.length >= needed) break;
+    if (!combined.includes(emoji)) combined.push(emoji);
+  }
+  return combined.slice(0, needed);
+}
+
+function getBoardLayout() {
+  if (gridSize === 10) return { padding: 8, gap: 4 };
+  if (gridSize === 8) return { padding: 10, gap: 6 };
+  return { padding: 12, gap: 8 };
 }
 
 function getCurrentLevel() {
@@ -232,6 +253,10 @@ function playSound(type) {
       cuteBoop(1047, 1319, 0.3, 0.12, "sine", 0.78);
     } else if (type === "fail") {
       cuteBoop(400, 150, 0.35, 0.1, "triangle");
+    } else if (type === "restart") {
+      cuteNote(392, 0.08, 0.1, "sine", 0);
+      cuteNote(494, 0.1, 0.1, "sine", 0.07);
+      cuteNote(587, 0.16, 0.11, "sine", 0.15);
     }
   } catch (_) {}
 }
@@ -368,13 +393,14 @@ function initGame() {
   clearPathLine();
   applyGridSize();
   updateUI();
-  renderBoard();
-  startTimer();
+  renderBoardAnimated();
 }
 
 function applyGridSize() {
   boardEl.className = `board size-${gridSize}`;
-  gameContainer.classList.toggle("size-8", gridSize === 8);
+  gameContainer.classList.remove("size-8", "size-10");
+  if (gridSize === 8) gameContainer.classList.add("size-8");
+  if (gridSize === 10) gameContainer.classList.add("size-10");
 }
 
 function createShuffledBoard() {
@@ -382,11 +408,11 @@ function createShuffledBoard() {
   const pairCount = getTotalCells() / 2;
   const pairs = [];
   for (let i = 0; i < pairCount; i++) {
-    const emoji = emojis[i % emojis.length];
+    const emoji = emojis[i];
     pairs.push(emoji, emoji);
   }
 
-  const maxAttempts = gridSize === 8 ? 200 : 120;
+  const maxAttempts = gridSize === 10 ? 300 : gridSize === 8 ? 200 : 120;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const candidate = shuffleArray(pairs);
     if (isFullySolvable(candidate)) return candidate;
@@ -472,7 +498,12 @@ function isPassable(boardData, r, c) {
   return boardData[r * gridSize + c] === null;
 }
 
-function lineClearHorizontal(boardData, row, c1, c2) {
+function isTileAt(boardData, r, c) {
+  if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+  return boardData[r * gridSize + c] !== null;
+}
+
+function lineClearHorizontalBetween(boardData, row, c1, c2) {
   const minC = Math.min(c1, c2);
   const maxC = Math.max(c1, c2);
   for (let c = minC + 1; c < maxC; c++) {
@@ -481,7 +512,7 @@ function lineClearHorizontal(boardData, row, c1, c2) {
   return true;
 }
 
-function lineClearVertical(boardData, col, r1, r2) {
+function lineClearVerticalBetween(boardData, col, r1, r2) {
   const minR = Math.min(r1, r2);
   const maxR = Math.max(r1, r2);
   for (let r = minR + 1; r < maxR; r++) {
@@ -498,28 +529,28 @@ function canConnect(boardData, i1, i2) {
   const { r: r1, c: c1 } = indexToRC(i1);
   const { r: r2, c: c2 } = indexToRC(i2);
 
-  if (r1 === r2 && lineClearHorizontal(boardData, r1, c1, c2)) return true;
-  if (c1 === c2 && lineClearVertical(boardData, c1, r1, r2)) return true;
+  if (r1 === r2 && lineClearHorizontalBetween(boardData, r1, c1, c2)) return true;
+  if (c1 === c2 && lineClearVerticalBetween(boardData, c1, r1, r2)) return true;
 
   if (
     isPassable(boardData, r1, c2) &&
-    lineClearHorizontal(boardData, r1, c1, c2) &&
-    lineClearVertical(boardData, c2, r1, r2)
+    lineClearHorizontalBetween(boardData, r1, c1, c2) &&
+    lineClearVerticalBetween(boardData, c2, r1, r2)
   ) return true;
 
   if (
     isPassable(boardData, r2, c1) &&
-    lineClearVertical(boardData, c1, r1, r2) &&
-    lineClearHorizontal(boardData, r2, c1, c2)
+    lineClearVerticalBetween(boardData, c1, r1, r2) &&
+    lineClearHorizontalBetween(boardData, r2, c1, c2)
   ) return true;
 
   for (let c = -1; c <= gridSize; c++) {
     if (
       isPassable(boardData, r1, c) &&
       isPassable(boardData, r2, c) &&
-      lineClearHorizontal(boardData, r1, c1, c) &&
-      lineClearVertical(boardData, c, r1, r2) &&
-      lineClearHorizontal(boardData, r2, c, c2)
+      lineClearHorizontalBetween(boardData, r1, c1, c) &&
+      lineClearVerticalBetween(boardData, c, r1, r2) &&
+      lineClearHorizontalBetween(boardData, r2, c, c2)
     ) return true;
   }
 
@@ -527,9 +558,9 @@ function canConnect(boardData, i1, i2) {
     if (
       isPassable(boardData, r, c1) &&
       isPassable(boardData, r, c2) &&
-      lineClearVertical(boardData, c1, r1, r) &&
-      lineClearHorizontal(boardData, r, c1, c2) &&
-      lineClearVertical(boardData, c2, r, r2)
+      lineClearVerticalBetween(boardData, c1, r1, r) &&
+      lineClearHorizontalBetween(boardData, r, c1, c2) &&
+      lineClearVerticalBetween(boardData, c2, r, r2)
     ) return true;
   }
 
@@ -544,30 +575,30 @@ function findPath(boardData, i1, i2) {
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
-      if (a.r === b.r && !lineClearHorizontal(boardData, a.r, a.c, b.c)) return null;
-      if (a.c === b.c && !lineClearVertical(boardData, a.c, a.r, b.r)) return null;
+      if (a.r === b.r && !lineClearHorizontalBetween(boardData, a.r, a.c, b.c)) return null;
+      if (a.c === b.c && !lineClearVerticalBetween(boardData, a.c, a.r, b.r)) return null;
     }
     return points;
   }
 
-  if (r1 === r2 && lineClearHorizontal(boardData, r1, c1, c2)) {
+  if (r1 === r2 && lineClearHorizontalBetween(boardData, r1, c1, c2)) {
     return tryPath([{ r: r1, c: c1 }, { r: r2, c: c2 }]);
   }
-  if (c1 === c2 && lineClearVertical(boardData, c1, r1, r2)) {
+  if (c1 === c2 && lineClearVerticalBetween(boardData, c1, r1, r2)) {
     return tryPath([{ r: r1, c: c1 }, { r: r2, c: c2 }]);
   }
 
   if (
     isPassable(boardData, r1, c2) &&
-    lineClearHorizontal(boardData, r1, c1, c2) &&
-    lineClearVertical(boardData, c2, r1, r2)
+    lineClearHorizontalBetween(boardData, r1, c1, c2) &&
+    lineClearVerticalBetween(boardData, c2, r1, r2)
   ) {
     return tryPath([{ r: r1, c: c1 }, { r: r1, c: c2 }, { r: r2, c: c2 }]);
   }
   if (
     isPassable(boardData, r2, c1) &&
-    lineClearVertical(boardData, c1, r1, r2) &&
-    lineClearHorizontal(boardData, r2, c1, c2)
+    lineClearVerticalBetween(boardData, c1, r1, r2) &&
+    lineClearHorizontalBetween(boardData, r2, c1, c2)
   ) {
     return tryPath([{ r: r1, c: c1 }, { r: r2, c: c1 }, { r: r2, c: c2 }]);
   }
@@ -576,9 +607,9 @@ function findPath(boardData, i1, i2) {
     if (
       isPassable(boardData, r1, c) &&
       isPassable(boardData, r2, c) &&
-      lineClearHorizontal(boardData, r1, c1, c) &&
-      lineClearVertical(boardData, c, r1, r2) &&
-      lineClearHorizontal(boardData, r2, c, c2)
+      lineClearHorizontalBetween(boardData, r1, c1, c) &&
+      lineClearVerticalBetween(boardData, c, r1, r2) &&
+      lineClearHorizontalBetween(boardData, r2, c, c2)
     ) {
       return tryPath([
         { r: r1, c: c1 }, { r: r1, c }, { r: r2, c }, { r: r2, c: c2 },
@@ -590,9 +621,9 @@ function findPath(boardData, i1, i2) {
     if (
       isPassable(boardData, r, c1) &&
       isPassable(boardData, r, c2) &&
-      lineClearVertical(boardData, c1, r1, r) &&
-      lineClearHorizontal(boardData, r, c1, c2) &&
-      lineClearVertical(boardData, c2, r, r2)
+      lineClearVerticalBetween(boardData, c1, r1, r) &&
+      lineClearHorizontalBetween(boardData, r, c1, c2) &&
+      lineClearVerticalBetween(boardData, c2, r, r2)
     ) {
       return tryPath([
         { r: r1, c: c1 }, { r, c: c1 }, { r, c: c2 }, { r: r2, c: c2 },
@@ -669,6 +700,48 @@ function findHintPair() {
   return findHintPairOnBoard(board);
 }
 
+function getBlockingTiles(boardData, i1, i2) {
+  const blockers = [];
+  const { r: r1, c: c1 } = indexToRC(i1);
+  const { r: r2, c: c2 } = indexToRC(i2);
+
+  if (r1 === r2) {
+    const minC = Math.min(c1, c2);
+    const maxC = Math.max(c1, c2);
+    for (let c = minC + 1; c < maxC; c++) {
+      const idx = r1 * gridSize + c;
+      if (boardData[idx] !== null) blockers.push(idx);
+    }
+  }
+
+  if (c1 === c2) {
+    const minR = Math.min(r1, r2);
+    const maxR = Math.max(r1, r2);
+    for (let r = minR + 1; r < maxR; r++) {
+      const idx = r * gridSize + c1;
+      if (boardData[idx] !== null) blockers.push(idx);
+    }
+  }
+
+  [[r1, c2], [r2, c1]].forEach(([r, c]) => {
+    if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+      const idx = r * gridSize + c;
+      if (boardData[idx] !== null && idx !== i1 && idx !== i2) blockers.push(idx);
+    }
+  });
+
+  return [...new Set(blockers)];
+}
+
+function highlightPathBlockers(i1, i2) {
+  const blockers = getBlockingTiles(board, i1, i2);
+  const cells = boardEl.querySelectorAll(".cell");
+  blockers.forEach((idx) => cells[idx]?.classList.add("path-blocked"));
+  setTimeout(() => {
+    blockers.forEach((idx) => cells[idx]?.classList.remove("path-blocked"));
+  }, 900);
+}
+
 // ===== 渲染 =====
 function renderBoard() {
   boardEl.innerHTML = "";
@@ -687,12 +760,37 @@ function renderBoard() {
   });
 }
 
+function renderBoardAnimated() {
+  isLocked = true;
+  renderBoard();
+
+  const cells = [...boardEl.querySelectorAll(".cell:not(.empty)")];
+  boardEl.classList.add("board-dealing");
+
+  const delayStep = gridSize >= 10 ? 10 : gridSize >= 8 ? 18 : 28;
+
+  cells.forEach((cell, i) => {
+    cell.classList.add("cell-deal");
+    cell.style.animationDelay = `${i * delayStep}ms`;
+  });
+
+  const duration = cells.length * delayStep + 380;
+  setTimeout(() => {
+    boardEl.classList.remove("board-dealing");
+    cells.forEach((cell) => {
+      cell.classList.remove("cell-deal");
+      cell.style.animationDelay = "";
+    });
+    isLocked = false;
+    startTimer();
+  }, duration);
+}
+
 function drawPath(i1, i2) {
   const path = findPath(board, i1, i2);
   if (!path) return;
   clearPathLine();
-  const padding = gridSize === 8 ? 10 : 12;
-  const gap = gridSize === 8 ? 6 : 8;
+  const { padding, gap } = getBoardLayout();
   const innerW = boardEl.clientWidth - padding * 2;
   const cellSize = (innerW - gap * (gridSize - 1)) / gridSize;
   const step = cellSize + gap;
@@ -711,6 +809,15 @@ function clearPathLine() {
   pathLineEl.innerHTML = "";
 }
 
+function setSelectedVisual(index) {
+  boardEl.querySelectorAll(".cell.selected").forEach((cell) => {
+    cell.classList.remove("selected");
+  });
+  if (index !== null) {
+    boardEl.querySelector(`.cell[data-index="${index}"]`)?.classList.add("selected");
+  }
+}
+
 // ===== 交互 =====
 function handleCellClick(index) {
   if (isLocked || gameWon || gameLost || board[index] === null) return;
@@ -719,15 +826,15 @@ function handleCellClick(index) {
 
   if (selectedIndex === null) {
     selectedIndex = index;
-    cells[index].classList.add("selected");
+    setSelectedVisual(index);
     playSound("select");
     clearHint();
     return;
   }
 
   if (selectedIndex === index) {
-    cells[index].classList.remove("selected");
     selectedIndex = null;
+    setSelectedVisual(null);
     return;
   }
 
@@ -739,9 +846,10 @@ function handleCellClick(index) {
     cells[first].classList.add("mismatch");
     cells[second].classList.add("mismatch");
     setTimeout(() => {
-      cells[first].classList.remove("selected", "mismatch");
+      cells[first].classList.remove("mismatch");
       cells[second].classList.remove("mismatch");
       selectedIndex = null;
+      setSelectedVisual(null);
     }, 400);
     return;
   }
@@ -751,12 +859,14 @@ function handleCellClick(index) {
     messageEl.textContent = t("msgPathBlocked");
     cells[first].classList.add("mismatch");
     cells[second].classList.add("mismatch");
+    highlightPathBlockers(first, second);
     setTimeout(() => {
-      cells[first].classList.remove("selected", "mismatch");
+      cells[first].classList.remove("mismatch");
       cells[second].classList.remove("mismatch");
       selectedIndex = null;
+      setSelectedVisual(null);
       if (!gameWon && !gameLost) messageEl.textContent = "";
-    }, 600);
+    }, 900);
     return;
   }
 
@@ -766,9 +876,9 @@ function handleCellClick(index) {
 function eliminatePair(first, second) {
   isLocked = true;
   selectedIndex = null;
+  setSelectedVisual(null);
   clearHint();
   const cells = boardEl.querySelectorAll(".cell");
-  cells[first].classList.remove("selected");
   cells[first].classList.add("removing", "locked");
   cells[second].classList.add("removing", "locked");
   playSound("match");
@@ -943,11 +1053,17 @@ function goNextLevel() {
 }
 
 // ===== 事件 =====
-restartBtn.addEventListener("click", initGame);
+function handleRestart() {
+  ensureAudio();
+  playSound("restart");
+  initGame();
+}
+
+restartBtn.addEventListener("click", handleRestart);
 hintBtn.addEventListener("click", showHint);
 shuffleBtn.addEventListener("click", shuffleRemaining);
 nextLevelBtn.addEventListener("click", goNextLevel);
-retryBtn.addEventListener("click", initGame);
+retryBtn.addEventListener("click", handleRestart);
 
 modeBtns.forEach((btn) => {
   btn.addEventListener("click", () => {

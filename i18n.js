@@ -1,6 +1,6 @@
 const TEXT = {
   title: "🎮 Emoji Collega",
-  subtitle: "Abbina le tessere uguali con un percorso (massimo 2 curve)",
+  subtitle: "Abbina le tessere uguali: il percorso non può attraversare altre tessere (massimo 2 curve)",
   modeFree: "Libero",
   modeLevel: "Livelli",
   difficulty: "Griglia",
@@ -29,7 +29,7 @@ const TEXT = {
   levelInfo: "Livello {n} · griglia {grid}×{grid}{time}",
   noTimeLimit: " · senza limite di tempo",
   timeLimitSec: " · {s} secondi",
-  msgPathBlocked: "Stesse tessere, ma il percorso è bloccato",
+  msgPathBlocked: "Il percorso non può attraversare altre tessere",
   msgNoPairs: "Nessuna coppia disponibile. Mischia o ricomincia",
   msgHintUsed: "Suggerimento usato (−{n} punti)",
   msgShuffleFew: "Troppo poche tessere per mischiare",
