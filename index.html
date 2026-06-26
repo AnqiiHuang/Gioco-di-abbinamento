@@ -51,6 +51,11 @@
       </select>
     </div>
 
+    <details class="instructions" open>
+      <summary data-i18n="instructionsTitle"></summary>
+      <p data-i18n="instructionsBody"></p>
+    </details>
+
     <div class="stats-bar">
       <div class="stat">
         <span class="stat-label" data-i18n="statTime"></span>
@@ -70,10 +75,15 @@
       </div>
     </div>
 
+    <div class="control-bar">
+      <button id="start-btn" type="button" class="ctrl-btn primary" data-i18n="btnStart"></button>
+      <button id="pause-btn" type="button" class="ctrl-btn" data-i18n="btnPause"></button>
+      <button id="restart-btn" type="button" class="ctrl-btn" data-i18n="btnRestart"></button>
+    </div>
+
     <div class="action-bar">
       <button id="hint-btn" type="button" data-i18n="btnHint"></button>
       <button id="shuffle-btn" type="button" data-i18n="btnShuffle"></button>
-      <button id="restart-btn" type="button" data-i18n="btnRestart"></button>
     </div>
 
     <div class="action-bar secondary hidden" id="win-actions">
@@ -84,9 +94,27 @@
     <div class="board-wrapper">
       <div id="board" class="board size-6"></div>
       <svg id="path-line" class="path-line" aria-hidden="true"></svg>
+      <div id="pause-overlay" class="pause-overlay hidden" aria-hidden="true">
+        <p data-i18n="msgPaused"></p>
+      </div>
     </div>
 
     <p id="message" class="message"></p>
+  </div>
+
+  <div id="win-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="win-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-icon" aria-hidden="true">🎉</div>
+      <h2 id="win-modal-title" data-i18n="winTitle"></h2>
+      <p id="win-modal-text" class="modal-text"></p>
+      <p id="win-modal-record" class="modal-record hidden"></p>
+      <div class="modal-actions">
+        <button id="win-modal-next" type="button" class="modal-btn primary hidden" data-i18n="btnNextLevel"></button>
+        <button id="win-modal-retry" type="button" class="modal-btn hidden" data-i18n="btnRetry"></button>
+        <button id="win-modal-close" type="button" class="modal-btn" data-i18n="btnPlayAgain"></button>
+      </div>
+    </div>
   </div>
 
   <script src="i18n.js"></script>

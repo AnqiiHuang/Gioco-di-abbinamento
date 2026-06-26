@@ -1,6 +1,9 @@
 const TEXT = {
   title: "🎮 Emoji Collega",
-  subtitle: "Abbina le tessere uguali: il percorso non può attraversare altre tessere (massimo 2 curve)",
+  subtitle: "Abbina le tessere uguali con un percorso di massimo 3 segmenti",
+  instructionsTitle: "📖 Come si gioca",
+  instructionsBody:
+    "Tocca due emoji uguali. Se possono collegarsi con al massimo 3 linee rette (senza attraversare altre tessere), vengono eliminate. Svuota tutta la griglia per vincere!",
   modeFree: "Libero",
   modeLevel: "Livelli",
   difficulty: "Griglia",
@@ -14,10 +17,14 @@ const TEXT = {
   statTime: "⏱ Tempo",
   statScore: "⭐ Punti",
   statRemaining: "🧩 Rimaste",
-  statBest: "🏆 Record",
+  statBest: "🏆 Miglior tempo",
+  btnStart: "▶️ Inizia",
+  btnPause: "⏸ Pausa",
+  btnResume: "▶️ Riprendi",
   btnHint: "💡 Suggerimento",
   btnShuffle: "🔀 Mischia",
   btnRestart: "🔄 Ricomincia",
+  btnPlayAgain: "🔄 Gioca ancora",
   btnNextLevel: "➡️ Prossimo livello",
   btnRetry: "🔁 Riprova",
   audioOn: "🔊 Audio attivo",
@@ -36,8 +43,14 @@ const TEXT = {
   msgShuffleFail: "Mischio non riuscito, riprova",
   msgShuffled: "Tessere mischiate (−{n} punti)",
   msgDeadlock: "⚠️ Bloccato. Mischia o ricomincia",
+  msgPaused: "⏸ Gioco in pausa",
+  msgPressStart: "Premi Inizia per cominciare",
   msgWin: "🎉 Vittoria. Tempo {time}, bonus +{bonus} punti",
-  msgNewRecord: "🌟 Nuovo record",
+  winTitle: "Complimenti!",
+  winMessage: "Hai completato il gioco in {time}.",
+  winLevelMessage: "Hai superato il livello {n} in {time}.",
+  winScore: "Punti totali: {score}",
+  msgNewRecord: "🌟 Nuovo record di tempo!",
   msgLevelWin: "🎉 Livello {n} superato. Punti {score}",
   msgLevelUnlock: "Livello {n} sbloccato",
   msgTimeUp: "⏰ Tempo scaduto. Riprova",
@@ -48,7 +61,8 @@ const TEXT = {
 function t(key, params = {}) {
   let str = TEXT[key] || key;
   Object.keys(params).forEach((k) => {
-    str = str.replaceAll(`{${k}}`, String(params[k]));
+    const token = `{${k}}`;
+    str = str.split(token).join(String(params[k]));
   });
   return str;
 }

@@ -88,6 +88,8 @@ let timerAccumulator = 0;
 let isLocked = false;
 let gameWon = false;
 let gameLost = false;
+let gameStarted = false;
+let gamePaused = false;
 let hintIndices = null;
 let boardAnimTimer = null;
 
@@ -103,6 +105,8 @@ const levelPanel = document.getElementById("level-panel");
 const levelListEl = document.getElementById("level-list");
 const levelInfoEl = document.getElementById("level-info");
 const restartBtn = document.getElementById("restart-btn");
+const startBtn = document.getElementById("start-btn");
+const pauseBtn = document.getElementById("pause-btn");
 const hintBtn = document.getElementById("hint-btn");
 const shuffleBtn = document.getElementById("shuffle-btn");
 const nextLevelBtn = document.getElementById("next-level-btn");
@@ -113,6 +117,13 @@ const timerEl = document.getElementById("timer");
 const scoreEl = document.getElementById("score");
 const bestScoreEl = document.getElementById("best-score");
 const messageEl = document.getElementById("message");
+const winModal = document.getElementById("win-modal");
+const winModalText = document.getElementById("win-modal-text");
+const winModalRecord = document.getElementById("win-modal-record");
+const winModalNext = document.getElementById("win-modal-next");
+const winModalRetry = document.getElementById("win-modal-retry");
+const winModalClose = document.getElementById("win-modal-close");
+const pauseOverlay = document.getElementById("pause-overlay");
 const modeBtns = document.querySelectorAll(".mode-btn");
 const diffBtns = document.querySelectorAll(".diff-btn");
 
@@ -192,12 +203,13 @@ function getHighScore(key) {
   return highScores[key] || null;
 }
 
-function saveHighScore(key, newScore, time) {
+function saveBestTime(key, time, score) {
   const prev = getHighScore(key);
-  if (!prev || newScore > prev.score) {
+  const prevTime = prev?.time ?? Infinity;
+  if (!prev || time < prevTime) {
     highScores[key] = {
-      score: newScore,
       time,
+      score,
       date: new Date().toISOString().slice(0, 10),
     };
     saveSettings();
@@ -409,7 +421,7 @@ function applyDarkMode() {
 
 function refreshBestScore() {
   const best = getHighScore(getScoreKey());
-  bestScoreEl.textContent = best ? best.score : t("bestNone");
+  bestScoreEl.textContent = best?.time != null ? formatTime(best.time) : t("bestNone");
 }
 
 function updateLevelInfo() {
@@ -477,6 +489,81 @@ function setDifficulty(size) {
   initGame();
 }
 
+function hideWinModal() {
+  winModal.classList.add("hidden");
+  winModalNext.classList.add("hidden");
+  winModalRetry.classList.add("hidden");
+  winModalRecord.classList.add("hidden");
+}
+
+function showWinModal({ timeUsed, isNewRecord, canPlayNext, isLevel }) {
+  const timeStr = formatTime(timeUsed);
+  if (isLevel) {
+    winModalText.textContent = t("winLevelMessage", { n: currentLevelId, time: timeStr });
+  } else {
+    winModalText.textContent = t("winMessage", { time: timeStr });
+  }
+  winModalRecord.textContent = isNewRecord ? t("msgNewRecord") : "";
+  winModalRecord.classList.toggle("hidden", !isNewRecord);
+  winModalNext.classList.toggle("hidden", !canPlayNext);
+  winModalRetry.classList.add("hidden");
+  winModal.classList.remove("hidden");
+}
+
+function showFailModal() {
+  winModalText.textContent = t("msgTimeUp");
+  winModalRecord.classList.add("hidden");
+  winModalNext.classList.add("hidden");
+  winModalRetry.classList.remove("hidden");
+  winModal.classList.remove("hidden");
+}
+
+function updatePauseOverlay() {
+  pauseOverlay.classList.toggle("hidden", !gamePaused || gameWon || gameLost);
+  boardEl.classList.toggle("board-paused", gamePaused && !gameWon && !gameLost);
+}
+
+function updateControlButtons() {
+  const blocked = gameWon || gameLost || gamePaused;
+  startBtn.disabled = gameStarted;
+  pauseBtn.disabled = !gameStarted || gameWon || gameLost;
+  pauseBtn.textContent = gamePaused ? t("btnResume") : t("btnPause");
+  hintBtn.disabled = blocked;
+  shuffleBtn.disabled = blocked;
+  restartBtn.disabled = false;
+}
+
+function ensureGameRunning() {
+  if (gameStarted || gameWon || gameLost) return;
+  ensureAudio();
+  gameStarted = true;
+  gamePaused = false;
+  startTimer();
+  updatePauseOverlay();
+  updateControlButtons();
+  if (messageEl.textContent === t("msgPressStart")) {
+    messageEl.textContent = "";
+  }
+}
+
+function startGame() {
+  ensureGameRunning();
+}
+
+function togglePause() {
+  if (!gameStarted || gameWon || gameLost) return;
+  gamePaused = !gamePaused;
+  if (gamePaused) {
+    pauseBgm();
+    selectedIndex = null;
+    setSelectedVisual(null);
+  } else if (audioEnabled) {
+    resumeBgm();
+  }
+  updatePauseOverlay();
+  updateControlButtons();
+}
+
 function hideWinActions() {
   winActions.classList.add("hidden");
   nextLevelBtn.classList.add("hidden");
@@ -505,10 +592,12 @@ function clearBoardAnimTimer() {
 // ===== 游戏初始化 =====
 function initGame() {
   stopTimer();
+  stopBgm();
   clearBoardAnimTimer();
   hideWinActions();
+  hideWinModal();
   boardEl.innerHTML = "";
-  boardEl.classList.remove("board-dealing", "shuffling");
+  boardEl.classList.remove("board-dealing", "shuffling", "board-paused", "board-preparing");
 
   if (gameMode === "level") {
     gridSize = getCurrentLevel().grid;
@@ -525,12 +614,16 @@ function initGame() {
   isLocked = false;
   gameWon = false;
   gameLost = false;
+  gameStarted = false;
+  gamePaused = false;
   hintIndices = null;
   messageEl.textContent = "";
   messageEl.classList.remove("win");
   clearPathLine();
   applyGridSize();
   updateUI();
+  updatePauseOverlay();
+  updateControlButtons();
   renderBoardAnimated();
 }
 
@@ -634,7 +727,7 @@ function shuffleArray(array) {
 
 // ===== 计时器 =====
 function isTimerPaused() {
-  return document.hidden || isLocked || gameWon || gameLost;
+  return document.hidden || gameWon || gameLost || gamePaused || !gameStarted;
 }
 
 function startTimer() {
@@ -709,8 +802,8 @@ function handleTimeUp() {
   playSound("fail");
   messageEl.classList.remove("win");
   messageEl.textContent = t("msgTimeUp");
-  hintBtn.disabled = true;
-  shuffleBtn.disabled = true;
+  updateControlButtons();
+  showFailModal();
   showRetryAction();
 }
 
@@ -742,7 +835,7 @@ function lineClearVerticalBetween(boardData, col, r1, r2) {
   const minR = Math.min(r1, r2);
   const maxR = Math.max(r1, r2);
   for (let r = minR + 1; r < maxR; r++) {
-    if (!isPassable(boardData, col, r)) return false;
+    if (!isPassable(boardData, r, col)) return false;
   }
   return true;
 }
@@ -982,7 +1075,6 @@ function renderBoard() {
     } else {
       cell.textContent = emoji;
       if (hintIndices && hintIndices.includes(index)) cell.classList.add("hint");
-      cell.addEventListener("click", () => handleCellClick(index));
     }
     boardEl.appendChild(cell);
   });
@@ -990,9 +1082,12 @@ function renderBoard() {
 
 function startBoardDealAnimation() {
   const cells = [...boardEl.querySelectorAll(".cell:not(.empty)")];
-  boardEl.classList.add("board-dealing");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const delayStep = reducedMotion ? 0 : gridSize >= 10 ? 10 : gridSize >= 8 ? 18 : 28;
 
-  const delayStep = gridSize >= 10 ? 10 : gridSize >= 8 ? 18 : 28;
+  if (reducedMotion || delayStep === 0) return;
+
+  boardEl.classList.add("board-dealing");
 
   cells.forEach((cell, i) => {
     cell.classList.add("cell-deal");
@@ -1007,25 +1102,16 @@ function startBoardDealAnimation() {
       cell.classList.remove("cell-deal");
       cell.style.animationDelay = "";
     });
-    isLocked = false;
-    startTimer();
   }, duration);
 }
 
 function renderBoardAnimated() {
-  isLocked = true;
-  boardEl.classList.add("board-preparing");
   renderBoard();
-  void boardEl.offsetHeight;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      boardEl.classList.remove("board-preparing");
-      gameContainer.classList.remove("layout-instant");
-      boardEl.classList.remove("layout-instant");
-      startBoardDealAnimation();
-    });
-  });
+  isLocked = false;
+  gameContainer.classList.remove("layout-instant");
+  boardEl.classList.remove("layout-instant", "board-preparing");
+  ensureGameRunning();
+  startBoardDealAnimation();
 }
 
 function drawPath(i1, i2) {
@@ -1062,7 +1148,8 @@ function setSelectedVisual(index) {
 
 // ===== 交互 =====
 function handleCellClick(index) {
-  if (isLocked || gameWon || gameLost || board[index] === null) return;
+  if (gameWon || gameLost || gamePaused || isLocked || board[index] === null) return;
+  ensureGameRunning();
   ensureAudio();
   const cells = boardEl.querySelectorAll(".cell");
 
@@ -1085,6 +1172,7 @@ function handleCellClick(index) {
 
   if (board[first] !== board[second]) {
     playSound("mismatch");
+    if (navigator.vibrate) navigator.vibrate(40);
     cells[first].classList.add("mismatch");
     cells[second].classList.add("mismatch");
     setTimeout(() => {
@@ -1098,6 +1186,7 @@ function handleCellClick(index) {
 
   if (!canConnect(board, first, second)) {
     playSound("mismatch");
+    if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
     messageEl.textContent = t("msgPathBlocked");
     cells[first].classList.add("mismatch");
     cells[second].classList.add("mismatch");
@@ -1139,7 +1228,8 @@ function eliminatePair(first, second) {
 }
 
 function showHint() {
-  if (isLocked || gameWon || gameLost) return;
+  if (gameWon || gameLost || gamePaused || isLocked) return;
+  ensureGameRunning();
   ensureAudio();
   const pair = findHintPair();
   if (!pair) {
@@ -1163,7 +1253,8 @@ function clearHint() {
 }
 
 function shuffleRemaining() {
-  if (isLocked || gameWon || gameLost) return;
+  if (gameWon || gameLost || gamePaused || isLocked) return;
+  ensureGameRunning();
   ensureAudio();
 
   const indices = [];
@@ -1228,7 +1319,7 @@ function shuffleRemaining() {
   setTimeout(() => {
     boardEl.classList.remove("shuffling");
     isLocked = false;
-    shuffleBtn.disabled = gameWon || gameLost;
+    shuffleBtn.disabled = gameWon || gameLost || !gameStarted || gamePaused;
     messageEl.textContent = t("msgShuffled", { n: SHUFFLE_PENALTY });
     checkDeadlock();
   }, 450);
@@ -1239,9 +1330,7 @@ function updateUI() {
   scoreEl.textContent = score;
   updateTimerDisplay();
   refreshBestScore();
-  hintBtn.disabled = gameWon || gameLost;
-  shuffleBtn.disabled = gameWon || gameLost;
-  restartBtn.disabled = false;
+  updateControlButtons();
 }
 
 function checkWin() {
@@ -1258,10 +1347,12 @@ function checkWin() {
   score += timeBonus;
   scoreEl.textContent = score;
 
-  const isNewRecord = saveHighScore(getScoreKey(), score, timeUsed);
+  const isNewRecord = saveBestTime(getScoreKey(), timeUsed, score);
   refreshBestScore();
   playSound("win");
   messageEl.classList.add("win");
+  updateControlButtons();
+  updatePauseOverlay();
 
   if (gameMode === "level") {
     let unlockMsg = "";
@@ -1279,15 +1370,13 @@ function checkWin() {
     const canPlayNext =
       currentLevelId < LEVELS.length && currentLevelId + 1 <= unlockedLevel;
     showWinActions(canPlayNext);
-    if (canPlayNext) messageEl.textContent += " " + t("msgNextLevel");
+    showWinModal({ timeUsed, isNewRecord, canPlayNext, isLevel: true });
   } else {
     messageEl.textContent =
       t("msgWin", { time: formatTime(timeUsed), bonus: timeBonus }) +
       (isNewRecord ? " " + t("msgNewRecord") : "");
+    showWinModal({ timeUsed, isNewRecord, canPlayNext: false, isLevel: false });
   }
-
-  hintBtn.disabled = true;
-  shuffleBtn.disabled = true;
 }
 
 function checkDeadlock() {
@@ -1312,6 +1401,16 @@ function goNextLevel() {
 }
 
 // ===== 事件 =====
+function handleBoardPointer(event) {
+  const cell = event.target.closest(".cell:not(.empty)");
+  if (!cell || !boardEl.contains(cell)) return;
+  const index = Number(cell.dataset.index);
+  if (!Number.isFinite(index)) return;
+  handleCellClick(index);
+}
+
+boardEl.addEventListener("click", handleBoardPointer);
+
 function handleRestart() {
   ensureAudio();
   playSound("restart");
@@ -1319,10 +1418,25 @@ function handleRestart() {
 }
 
 restartBtn.addEventListener("click", handleRestart);
+startBtn.addEventListener("click", startGame);
+pauseBtn.addEventListener("click", togglePause);
 hintBtn.addEventListener("click", showHint);
 shuffleBtn.addEventListener("click", shuffleRemaining);
 nextLevelBtn.addEventListener("click", goNextLevel);
 retryBtn.addEventListener("click", handleRestart);
+winModalClose.addEventListener("click", () => {
+  hideWinModal();
+  handleRestart();
+});
+winModalNext.addEventListener("click", () => {
+  hideWinModal();
+  goNextLevel();
+});
+winModalRetry.addEventListener("click", () => {
+  hideWinModal();
+  handleRestart();
+});
+winModal.querySelector(".modal-backdrop")?.addEventListener("click", hideWinModal);
 
 modeBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -1371,27 +1485,36 @@ themePicker.addEventListener("change", () => {
 });
 
 // ===== 启动 =====
-loadSettings();
-themePicker.value = currentTheme;
-diffBtns.forEach((btn) => {
-  btn.classList.toggle("active", Number(btn.dataset.size) === gridSize);
-});
-modeBtns.forEach((btn) => {
-  btn.classList.toggle("active", btn.dataset.mode === gameMode);
-});
-freePanel.classList.toggle("hidden", gameMode !== "free");
-levelPanel.classList.toggle("hidden", gameMode !== "level");
+function bootGame() {
+  try {
+    loadSettings();
+    themePicker.value = currentTheme;
+    diffBtns.forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.size) === gridSize);
+    });
+    modeBtns.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === gameMode);
+    });
+    freePanel.classList.toggle("hidden", gameMode !== "free");
+    levelPanel.classList.toggle("hidden", gameMode !== "level");
 
-applyI18n();
-refreshThemeOptions();
-updateAudioToggle();
-applyDarkMode();
-renderLevelList();
+    applyI18n();
+    refreshThemeOptions();
+    updateAudioToggle();
+    applyDarkMode();
+    renderLevelList();
 
-if (gameMode === "level") {
-  gridSize = getCurrentLevel().grid;
-} else {
-  gridSize = Number(document.querySelector(".diff-btn.active")?.dataset.size || 6);
+    if (gameMode === "level") {
+      gridSize = getCurrentLevel().grid;
+    } else {
+      gridSize = Number(document.querySelector(".diff-btn.active")?.dataset.size || 6);
+    }
+
+    initGame();
+  } catch (err) {
+    console.error(err);
+    messageEl.textContent = "Errore di avvio. Ricarica la pagina.";
+  }
 }
 
-initGame();
+bootGame();
