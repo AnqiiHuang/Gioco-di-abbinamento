@@ -50,34 +50,39 @@ body.dark-mode {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
   background: var(--bg-gradient);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  padding: 20px;
+  padding: max(12px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    max(12px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
   color: var(--text-primary);
   transition: background 0.3s ease;
+  overflow-x: hidden;
 }
 
 .game-container {
   background: var(--card-bg);
-  border-radius: 20px;
-  padding: 28px;
+  border-radius: clamp(14px, 3vw, 20px);
+  padding: clamp(14px, 4vw, 28px);
   box-shadow: var(--card-shadow);
   text-align: center;
-  max-width: 500px;
+  max-width: min(500px, 100%);
   width: 100%;
+  overflow-x: hidden;
   transition: max-width 0.3s ease, background 0.3s ease;
 }
 
 .game-container.size-8 {
-  max-width: 620px;
+  max-width: min(620px, 100%);
 }
 
 .game-container.size-10 {
-  max-width: 760px;
-  padding: 24px;
+  max-width: min(760px, 100%);
 }
 
 .top-bar {
@@ -89,9 +94,10 @@ body {
 }
 
 .top-bar h1 {
-  font-size: 1.45rem;
+  font-size: clamp(1.1rem, 4.5vw, 1.45rem);
   color: var(--text-primary);
   text-align: left;
+  line-height: 1.25;
 }
 
 .settings-bar {
@@ -379,6 +385,15 @@ body {
   margin-bottom: 14px;
 }
 
+.action-bar button,
+.mode-btn,
+.diff-btn,
+.setting-btn,
+.level-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .action-bar button {
   flex: 1;
   color: white;
@@ -424,12 +439,17 @@ body {
 }
 
 .board {
+  --board-gap: 8px;
+  --board-padding: 12px;
+  --cell-font: clamp(1.35rem, 5.5vw, 2.1rem);
+  --cell-radius: 12px;
   display: grid;
-  gap: 8px;
+  gap: var(--board-gap);
   background: var(--board-bg);
-  padding: 12px;
+  padding: var(--board-padding);
   border-radius: 14px;
-  transition: background 0.3s ease;
+  transition: background 0.3s ease, gap 0.2s ease, padding 0.2s ease;
+  width: 100%;
 }
 
 .board.size-6 {
@@ -437,25 +457,19 @@ body {
 }
 
 .board.size-8 {
+  --board-gap: 6px;
+  --board-padding: 10px;
+  --cell-font: clamp(1.1rem, 3.8vw, 1.65rem);
+  --cell-radius: 11px;
   grid-template-columns: repeat(8, 1fr);
-  gap: 6px;
-  padding: 10px;
 }
 
 .board.size-10 {
+  --board-gap: 4px;
+  --board-padding: 8px;
+  --cell-font: clamp(0.85rem, 2.6vw, 1.35rem);
+  --cell-radius: 9px;
   grid-template-columns: repeat(10, 1fr);
-  gap: 4px;
-  padding: 8px;
-}
-
-.board.size-8 .cell {
-  font-size: 1.65rem;
-  border-radius: 11px;
-}
-
-.board.size-10 .cell {
-  font-size: 1.35rem;
-  border-radius: 9px;
 }
 
 .board.shuffling .cell:not(.empty) {
@@ -519,10 +533,14 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 2.1rem;
+  font-size: var(--cell-font, 2.1rem);
   line-height: 1;
   background: linear-gradient(145deg, #ffffff 0%, #f6f2ff 45%, #ebe6fa 100%);
-  border-radius: 12px;
+  border-radius: var(--cell-radius, 12px);
+  min-width: 0;
+  min-height: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.34, 1.3, 0.64, 1),
     box-shadow 0.2s ease,
@@ -668,20 +686,210 @@ body.dark-mode .cell.hint {
   100% { transform: scale(1); opacity: 1; }
 }
 
-@media (max-width: 420px) {
+/* ── 平板 ── */
+@media (min-width: 768px) {
+  body {
+    padding: max(20px, env(safe-area-inset-top, 0px))
+      max(20px, env(safe-area-inset-right, 0px))
+      max(20px, env(safe-area-inset-bottom, 0px))
+      max(20px, env(safe-area-inset-left, 0px));
+  }
+}
+
+/* ── 小屏手机 ── */
+@media (max-width: 480px) {
+  .stats-bar {
+    gap: 6px;
+  }
+
+  .stat {
+    padding: 8px 4px;
+  }
+
+  .stat-label {
+    font-size: 0.62rem;
+  }
+
+  .stat-value {
+    font-size: 0.9rem;
+  }
+
+  .mode-btn {
+    font-size: 0.82rem;
+    padding: 7px 8px;
+  }
+
+  .diff-btn {
+    font-size: 0.78rem;
+    padding: 5px 10px;
+  }
+
+  .theme-bar {
+    flex-wrap: wrap;
+  }
+
+  .theme-bar select {
+    max-width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .board.size-6 {
+    --board-gap: 5px;
+    --board-padding: 8px;
+    --cell-font: clamp(1.2rem, 5.8vw, 1.8rem);
+  }
+
+  .board.size-8 {
+    --board-gap: 4px;
+    --board-padding: 6px;
+    --cell-font: clamp(0.95rem, 3.4vw, 1.4rem);
+  }
+
+  .board.size-10 {
+    --board-gap: 2px;
+    --board-padding: 4px;
+    --cell-font: clamp(0.7rem, 2.4vw, 1.1rem);
+    --cell-radius: 6px;
+  }
+
+  .path-line polyline {
+    stroke-width: 3;
+  }
+
+  .level-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ── 超窄屏 ── */
+@media (max-width: 380px) {
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .top-bar h1 {
+    text-align: center;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.78rem;
+    margin-bottom: 14px;
+  }
+
   .settings-bar {
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: flex-end;
-    max-width: 50%;
+    justify-content: center;
+    gap: 6px;
+    max-width: none;
   }
 
   .setting-btn {
     font-size: 0.65rem;
-    padding: 4px 7px;
+    padding: 4px 8px;
+  }
+
+  .stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
   }
 
   .action-bar button {
+    flex: 1 1 calc(50% - 4px);
     font-size: 0.68rem;
+    padding: 9px 4px;
+  }
+
+  #restart-btn {
+    flex: 1 1 100%;
+  }
+
+  .board.size-10 {
+    --board-gap: 1px;
+    --board-padding: 3px;
+    --cell-font: clamp(0.62rem, 2.2vw, 0.95rem);
+    --cell-radius: 5px;
+  }
+}
+
+/* ── 横屏矮屏（手机横屏） ── */
+@media (max-height: 520px) and (orientation: landscape) {
+  body {
+    align-items: flex-start;
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .game-container {
+    padding: 10px 14px;
+    margin: 4px 0;
+  }
+
+  .subtitle {
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+  }
+
+  .mode-bar,
+  .panel,
+  .theme-bar {
+    margin-bottom: 8px;
+  }
+
+  .stats-bar {
+    margin-bottom: 8px;
+  }
+
+  .action-bar {
+    margin-bottom: 8px;
+  }
+
+  .message {
+    margin-top: 8px;
+    font-size: 0.85rem;
+  }
+
+  .board.size-6 {
+    --board-gap: 4px;
+    --board-padding: 6px;
+    --cell-font: clamp(1rem, 3.5vh, 1.5rem);
+  }
+
+  .board.size-8 {
+    --board-gap: 3px;
+    --board-padding: 5px;
+    --cell-font: clamp(0.8rem, 2.8vh, 1.2rem);
+  }
+
+  .board.size-10 {
+    --board-gap: 2px;
+    --board-padding: 4px;
+    --cell-font: clamp(0.65rem, 2.2vh, 1rem);
+  }
+}
+
+/* ── 大屏桌面 ── */
+@media (min-width: 1200px) {
+  .game-container.size-10 {
+    max-width: 800px;
+  }
+}
+
+/* ── 减少动画偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

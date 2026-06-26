@@ -130,9 +130,13 @@ function getActiveEmojis() {
 }
 
 function getBoardLayout() {
-  if (gridSize === 10) return { padding: 8, gap: 4 };
-  if (gridSize === 8) return { padding: 10, gap: 6 };
-  return { padding: 12, gap: 8 };
+  const styles = getComputedStyle(boardEl);
+  const padding = parseFloat(styles.getPropertyValue("--board-padding"));
+  const gap = parseFloat(styles.getPropertyValue("--board-gap"));
+  return {
+    padding: Number.isFinite(padding) ? padding : 12,
+    gap: Number.isFinite(gap) ? gap : 8,
+  };
 }
 
 function getCurrentLevel() {
