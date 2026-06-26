@@ -16,7 +16,6 @@
           <button id="theme-mode-toggle" type="button" class="setting-btn" data-i18n="btnDark"></button>
         </div>
       </div>
-      <p class="subtitle" data-i18n="subtitle"></p>
     </header>
 
     <div class="mode-bar">
@@ -51,6 +50,11 @@
       </select>
     </div>
 
+    <details class="instructions-panel" open>
+      <summary data-i18n="instructionsTitle"></summary>
+      <p class="instructions-text" data-i18n="instructions"></p>
+    </details>
+
     <div class="stats-bar">
       <div class="stat">
         <span class="stat-label" data-i18n="statTime"></span>
@@ -65,15 +69,20 @@
         <span id="remaining" class="stat-value">36</span>
       </div>
       <div class="stat">
-        <span class="stat-label" data-i18n="statBest"></span>
-        <span id="best-score" class="stat-value">—</span>
+        <span class="stat-label" data-i18n="statBestTime"></span>
+        <span id="best-time" class="stat-value">—</span>
       </div>
     </div>
 
+    <div class="control-bar">
+      <button id="start-btn" type="button" class="ctrl-btn ctrl-start" data-i18n="btnStart"></button>
+      <button id="pause-btn" type="button" class="ctrl-btn ctrl-pause" data-i18n="btnPause" disabled></button>
+      <button id="restart-btn" type="button" class="ctrl-btn ctrl-restart" data-i18n="btnRestart"></button>
+    </div>
+
     <div class="action-bar">
-      <button id="hint-btn" type="button" data-i18n="btnHint"></button>
-      <button id="shuffle-btn" type="button" data-i18n="btnShuffle"></button>
-      <button id="restart-btn" type="button" data-i18n="btnRestart"></button>
+      <button id="hint-btn" type="button" data-i18n="btnHint" disabled></button>
+      <button id="shuffle-btn" type="button" data-i18n="btnShuffle" disabled></button>
     </div>
 
     <div class="action-bar secondary hidden" id="win-actions">

@@ -91,6 +91,7 @@ let currentLevelId = 1;
 let currentTheme = "mixed";
 let unlockedLevel = 1;
 let highScores = {};
+let bestTimes = {};
 let soundEnabled = true;
 let darkMode = false;
 
@@ -104,6 +105,7 @@ let isLocked = false;
 let gameWon = false;
 let gameLost = false;
 let hintIndices = null;
+let gamePlayState = "ready";
 
 // ===== DOM =====
 const gameContainer = document.getElementById("game-container");
@@ -117,6 +119,8 @@ const levelPanel = document.getElementById("level-panel");
 const levelListEl = document.getElementById("level-list");
 const levelInfoEl = document.getElementById("level-info");
 const restartBtn = document.getElementById("restart-btn");
+const startBtn = document.getElementById("start-btn");
+const pauseBtn = document.getElementById("pause-btn");
 const hintBtn = document.getElementById("hint-btn");
 const shuffleBtn = document.getElementById("shuffle-btn");
 const nextLevelBtn = document.getElementById("next-level-btn");
@@ -125,7 +129,7 @@ const winActions = document.getElementById("win-actions");
 const remainingEl = document.getElementById("remaining");
 const timerEl = document.getElementById("timer");
 const scoreEl = document.getElementById("score");
-const bestScoreEl = document.getElementById("best-score");
+const bestTimeEl = document.getElementById("best-time");
 const messageEl = document.getElementById("message");
 const modeBtns = document.querySelectorAll(".mode-btn");
 const diffBtns = document.querySelectorAll(".diff-btn");
@@ -181,6 +185,11 @@ function loadSettings() {
     if (data.unlockedLevel) unlockedLevel = data.unlockedLevel;
     if (data.currentLevelId) currentLevelId = data.currentLevelId;
     if (data.highScores) highScores = data.highScores;
+    if (data.bestTimes) bestTimes = data.bestTimes;
+    Object.keys(highScores).forEach((key) => {
+      const time = highScores[key]?.time;
+      if (time != null && getBestTime(key) === null) bestTimes[key] = time;
+    });
   } catch (_) {
     /* 忽略损坏数据 */
   }
@@ -197,6 +206,7 @@ function saveSettings() {
       unlockedLevel,
       currentLevelId,
       highScores,
+      bestTimes,
     })
   );
 }
@@ -217,6 +227,90 @@ function saveHighScore(key, newScore, time) {
     return true;
   }
   return false;
+}
+
+function getBestTime(key) {
+  return bestTimes[key] ?? null;
+}
+
+function saveBestTime(key, time) {
+  const prev = getBestTime(key);
+  if (prev === null || time < prev) {
+    bestTimes[key] = time;
+    saveSettings();
+    return true;
+  }
+  return false;
+}
+
+// ===== 背景音乐（与音效共用 soundEnabled 开关）=====
+let bgmGain = null;
+let bgmOscillators = [];
+let bgmInterval = null;
+
+const BGM_MELODY = [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 783.99, 880.0];
+const BGM_BASS = [261.63, 329.63, 392.0, 329.63];
+
+function startBgm() {
+  if (!soundEnabled || bgmInterval) return;
+  try {
+    ensureAudio();
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.035;
+    bgmGain.connect(audioCtx.destination);
+
+    const bass = audioCtx.createOscillator();
+    const bassGain = audioCtx.createGain();
+    bass.type = "sine";
+    bass.frequency.value = BGM_BASS[0];
+    bassGain.gain.value = 0.45;
+    bass.connect(bassGain);
+    bassGain.connect(bgmGain);
+    bass.start();
+    bgmOscillators.push(bass);
+
+    let step = 0;
+    bgmInterval = setInterval(() => {
+      if (!bgmGain || audioCtx.state !== "running") return;
+      const note = BGM_MELODY[step % BGM_MELODY.length];
+      const bassNote = BGM_BASS[Math.floor(step / 2) % BGM_BASS.length];
+      bass.frequency.setTargetAtTime(bassNote, audioCtx.currentTime, 0.1);
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = note;
+      const now = audioCtx.currentTime;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+      osc.connect(gain);
+      gain.connect(bgmGain);
+      osc.start(now);
+      osc.stop(now + 0.9);
+      step++;
+    }, 820);
+  } catch (_) {}
+}
+
+function stopBgm() {
+  if (bgmInterval) {
+    clearInterval(bgmInterval);
+    bgmInterval = null;
+  }
+  bgmOscillators.forEach((osc) => {
+    try { osc.stop(); } catch (_) {}
+  });
+  bgmOscillators = [];
+  if (bgmGain) {
+    try { bgmGain.disconnect(); } catch (_) {}
+    bgmGain = null;
+  }
+}
+
+function syncBgm() {
+  if (soundEnabled && gamePlayState === "playing") startBgm();
+  else stopBgm();
 }
 
 // ===== 音效 =====
@@ -298,6 +392,7 @@ function refreshThemeOptions() {
 function updateSoundToggle() {
   soundToggle.textContent = soundEnabled ? t("soundOn") : t("soundOff");
   soundToggle.setAttribute("aria-pressed", soundEnabled);
+  syncBgm();
 }
 
 function applyDarkMode() {
@@ -306,9 +401,27 @@ function applyDarkMode() {
   themeModeToggle.setAttribute("aria-pressed", darkMode);
 }
 
-function refreshBestScore() {
-  const best = getHighScore(getScoreKey());
-  bestScoreEl.textContent = best ? best.score : t("bestNone");
+function refreshBestTime() {
+  const best = getBestTime(getScoreKey());
+  bestTimeEl.textContent = best !== null ? formatTime(best) : t("bestNone");
+}
+
+function updateControlButtons() {
+  const playing = gamePlayState === "playing";
+  const paused = gamePlayState === "paused";
+  const ready = gamePlayState === "ready";
+  const ended = gameWon || gameLost;
+
+  startBtn.disabled = playing || ended;
+  pauseBtn.disabled = ready || ended;
+  pauseBtn.textContent = paused ? t("btnResume") : t("btnPause");
+  pauseBtn.classList.toggle("ctrl-resume", paused);
+
+  hintBtn.disabled = !playing;
+  shuffleBtn.disabled = !playing;
+  restartBtn.disabled = false;
+
+  boardEl.classList.toggle("board-paused", paused);
 }
 
 function updateLevelInfo() {
@@ -397,7 +510,9 @@ function showRetryAction() {
 // ===== 游戏初始化 =====
 function initGame() {
   stopTimer();
+  stopBgm();
   hideWinActions();
+  gamePlayState = "ready";
 
   if (gameMode === "level") {
     gridSize = getCurrentLevel().grid;
@@ -421,6 +536,7 @@ function initGame() {
   applyGridSize();
   updateUI();
   renderBoardAnimated();
+  updateControlButtons();
 }
 
 function applyGridSize() {
@@ -540,6 +656,45 @@ function createShuffledBoard() {
   return scatterSolvableBoard(createSequentialPairBoard(pairs), scatterBudget);
 }
 
+function startGame({ silent = false } = {}) {
+  if (gamePlayState === "playing" || gameWon || gameLost) return;
+  ensureAudio();
+  if (!silent) playSound("restart");
+  gamePlayState = "playing";
+  if (messageEl.textContent === t("msgPaused")) {
+    messageEl.textContent = "";
+  }
+  startTimer();
+  syncBgm();
+  updateControlButtons();
+}
+
+function pauseGame() {
+  if (gamePlayState !== "playing") return;
+  gamePlayState = "paused";
+  stopTimer();
+  stopBgm();
+  selectedIndex = null;
+  setSelectedVisual(null);
+  clearHint();
+  messageEl.textContent = t("msgPaused");
+  updateControlButtons();
+}
+
+function resumeGame() {
+  if (gamePlayState !== "paused") return;
+  gamePlayState = "playing";
+  messageEl.textContent = "";
+  startTimer();
+  syncBgm();
+  updateControlButtons();
+}
+
+function togglePause() {
+  if (gamePlayState === "playing") pauseGame();
+  else if (gamePlayState === "paused") resumeGame();
+}
+
 // ===== 计时器 =====
 function startTimer() {
   updateTimerDisplay();
@@ -581,13 +736,16 @@ function formatTime(seconds) {
 
 function handleTimeUp() {
   gameLost = true;
+  gamePlayState = "lost";
   stopTimer();
+  stopBgm();
   playSound("fail");
   messageEl.classList.remove("win");
   messageEl.textContent = t("msgTimeUp");
   hintBtn.disabled = true;
   shuffleBtn.disabled = true;
   showRetryAction();
+  updateControlButtons();
 }
 
 // ===== 路径判断 =====
@@ -881,7 +1039,6 @@ function renderBoardAnimated() {
       cell.classList.remove("cell-deal");
       cell.style.animationDelay = "";
     });
-    startTimer();
   }, duration);
 }
 
@@ -919,7 +1076,10 @@ function setSelectedVisual(index) {
 
 // ===== 交互 =====
 function handleCellClick(index) {
-  if (isLocked || gameWon || gameLost || board[index] === null) return;
+  if (gamePlayState === "ready" && !gameWon && !gameLost) {
+    startGame({ silent: true });
+  }
+  if (gamePlayState !== "playing" || isLocked || gameWon || gameLost || board[index] === null) return;
   ensureAudio();
   const cells = boardEl.querySelectorAll(".cell");
 
@@ -996,7 +1156,7 @@ function eliminatePair(first, second) {
 }
 
 function showHint() {
-  if (isLocked || gameWon || gameLost) return;
+  if (gamePlayState !== "playing" || isLocked || gameWon || gameLost) return;
   ensureAudio();
   const pair = findHintPair();
   if (!pair) {
@@ -1020,7 +1180,7 @@ function clearHint() {
 }
 
 function shuffleRemaining() {
-  if (isLocked || gameWon || gameLost) return;
+  if (gamePlayState !== "playing" || isLocked || gameWon || gameLost) return;
   ensureAudio();
 
   const indices = [];
@@ -1087,17 +1247,17 @@ function updateUI() {
   remainingEl.textContent = board.filter((e) => e !== null).length;
   scoreEl.textContent = score;
   updateTimerDisplay();
-  refreshBestScore();
-  hintBtn.disabled = gameWon || gameLost;
-  shuffleBtn.disabled = gameWon || gameLost;
-  restartBtn.disabled = false;
+  refreshBestTime();
+  updateControlButtons();
 }
 
 function checkWin() {
   if (!board.every((e) => e === null)) return;
 
   gameWon = true;
+  gamePlayState = "won";
   stopTimer();
+  stopBgm();
 
   const timeUsed = countdownRemaining !== null
     ? getCurrentLevel().timeLimit - countdownRemaining
@@ -1107,10 +1267,16 @@ function checkWin() {
   score += timeBonus;
   scoreEl.textContent = score;
 
-  const isNewRecord = saveHighScore(getScoreKey(), score, timeUsed);
-  refreshBestScore();
+  const isNewScoreRecord = saveHighScore(getScoreKey(), score, timeUsed);
+  const isNewTimeRecord = saveBestTime(getScoreKey(), timeUsed);
+  refreshBestTime();
   playSound("win");
   messageEl.classList.add("win");
+
+  const recordMsg = [
+    isNewTimeRecord ? t("msgNewTimeRecord") : "",
+    isNewScoreRecord ? t("msgNewRecord") : "",
+  ].filter(Boolean).join(" ");
 
   if (gameMode === "level") {
     let unlockMsg = "";
@@ -1120,9 +1286,9 @@ function checkWin() {
       unlockMsg = " " + t("msgLevelUnlock", { n: unlockedLevel });
     }
     messageEl.textContent =
-      t("msgLevelWin", { n: currentLevelId, score }) +
+      t("msgLevelWin", { n: currentLevelId, time: formatTime(timeUsed), score }) +
       unlockMsg +
-      (isNewRecord ? " " + t("msgNewRecord") : "");
+      (recordMsg ? " " + recordMsg : "");
     renderLevelList();
 
     const canPlayNext =
@@ -1132,11 +1298,10 @@ function checkWin() {
   } else {
     messageEl.textContent =
       t("msgWin", { time: formatTime(timeUsed), bonus: timeBonus }) +
-      (isNewRecord ? " " + t("msgNewRecord") : "");
+      (recordMsg ? " " + recordMsg : "");
   }
 
-  hintBtn.disabled = true;
-  shuffleBtn.disabled = true;
+  updateControlButtons();
 }
 
 function checkDeadlock() {
@@ -1178,6 +1343,8 @@ function handleRestart() {
 }
 
 restartBtn.addEventListener("click", handleRestart);
+startBtn.addEventListener("click", startGame);
+pauseBtn.addEventListener("click", togglePause);
 hintBtn.addEventListener("click", showHint);
 shuffleBtn.addEventListener("click", shuffleRemaining);
 nextLevelBtn.addEventListener("click", goNextLevel);
@@ -1200,7 +1367,10 @@ soundToggle.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   updateSoundToggle();
   saveSettings();
-  if (soundEnabled) playSound("select");
+  if (soundEnabled) {
+    ensureAudio();
+    playSound("select");
+  }
 });
 
 themeModeToggle.addEventListener("click", () => {

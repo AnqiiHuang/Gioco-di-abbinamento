@@ -5,35 +5,44 @@
 }
 
 :root {
-  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --card-bg: rgba(255, 255, 255, 0.95);
-  --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  --text-primary: #333;
-  --text-secondary: #888;
-  --accent: #5c6bc0;
-  --accent-strong: #667eea;
-  --surface: #f3f0ff;
-  --surface-alt: #ede7f6;
-  --surface-hover: #d1c4e9;
-  --board-bg: #e8eaf6;
+  --page-bg: #eceaf3;
+  --bg-gradient: #eceaf3;
+  --card-bg: #ffffff;
+  --card-border: #e4dff0;
+  --card-shadow: 0 8px 32px rgba(102, 90, 140, 0.1);
+  --text-primary: #3d3558;
+  --text-secondary: #8a82a0;
+  --accent: #6b5ce7;
+  --accent-strong: #7c6df0;
+  --surface: #f7f5fc;
+  --surface-alt: #f0edf8;
+  --surface-hover: #e8e3f5;
+  --board-bg: #f3f1fa;
   --cell-bg: white;
-  --cell-hover: #f3f0ff;
-  --cell-selected: #c5cae9;
-  --message: #764ba2;
+  --cell-hover: #f7f5fc;
+  --cell-selected: #ddd6f8;
+  --message: #6b5ce7;
   --message-win: #2e7d32;
-  --input-bg: #f3f0ff;
-  --input-border: #d1c4e9;
-  --path-stroke: #ff6f00;
+  --input-bg: #f7f5fc;
+  --input-border: #ddd6ee;
+  --path-stroke: #ff8f00;
+  --btn-start: #4caf50;
+  --btn-start-shadow: rgba(76, 175, 80, 0.35);
+  --btn-pause-bg: #f0edf8;
+  --btn-pause-text: #9a92b0;
+  --btn-restart: #7c6df0;
 }
 
 body.dark-mode {
-  --bg-gradient: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
-  --card-bg: rgba(28, 28, 42, 0.96);
-  --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --page-bg: #12121c;
+  --bg-gradient: #12121c;
+  --card-bg: #1e1e2c;
+  --card-border: #2e2e42;
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --text-primary: #ececf4;
   --text-secondary: #a0a0b8;
   --accent: #9fa8da;
-  --accent-strong: #7986cb;
+  --accent-strong: #b39ddb;
   --surface: #2a2a3e;
   --surface-alt: #232336;
   --surface-hover: #3a3a52;
@@ -46,6 +55,8 @@ body.dark-mode {
   --input-bg: #2a2a3e;
   --input-border: #4a4a62;
   --path-stroke: #ffb74d;
+  --btn-pause-bg: #2a2a3e;
+  --btn-pause-text: #8888a8;
 }
 
 body {
@@ -67,11 +78,12 @@ body {
 
 .game-container {
   background: var(--card-bg);
-  border-radius: clamp(14px, 3vw, 20px);
-  padding: clamp(14px, 4vw, 28px);
+  border: 1px solid var(--card-border);
+  border-radius: clamp(16px, 3vw, 22px);
+  padding: clamp(16px, 4vw, 28px);
   box-shadow: var(--card-shadow);
   text-align: center;
-  max-width: min(500px, 100%);
+  max-width: min(520px, 100%);
   width: 100%;
   overflow-x: hidden;
   transition: max-width 0.3s ease, background 0.3s ease;
@@ -94,29 +106,33 @@ body {
 }
 
 .top-bar h1 {
-  font-size: clamp(1.1rem, 4.5vw, 1.45rem);
-  color: var(--text-primary);
+  font-size: clamp(1.15rem, 4.5vw, 1.5rem);
+  font-weight: 800;
   text-align: left;
   line-height: 1.25;
+  color: var(--accent);
 }
 
 .settings-bar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .setting-btn {
   background: var(--surface);
   border: 1px solid var(--input-border);
-  color: var(--accent);
-  padding: 5px 10px;
-  border-radius: 12px;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 20px;
   font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 .setting-btn:hover {
@@ -126,11 +142,12 @@ body {
 
 .mode-bar {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 12px;
   background: var(--surface-alt);
   padding: 4px;
   border-radius: 14px;
+  border: 1px solid var(--input-border);
 }
 
 .mode-btn {
@@ -220,7 +237,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #8b7cf7 0%, #6b5ce7 100%);
   opacity: 0;
   transition: opacity 0.15s ease;
   z-index: -1;
@@ -234,7 +251,7 @@ body {
 .level-btn.active {
   background: transparent;
   color: white;
-  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 3px 10px rgba(107, 92, 231, 0.35);
 }
 
 .level-btn.active::before {
@@ -331,7 +348,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #8b7cf7 0%, #6b5ce7 100%);
   opacity: 0;
   transition: opacity 0.15s ease;
   z-index: -1;
@@ -345,25 +362,74 @@ body {
 .diff-btn.active {
   background: transparent;
   color: white;
-  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 3px 10px rgba(107, 92, 231, 0.35);
 }
 
 .diff-btn.active::before {
   opacity: 1;
 }
 
+.mode-btn.active {
+  background: var(--cell-bg);
+  box-shadow: 0 2px 8px rgba(107, 92, 231, 0.15);
+  color: var(--accent);
+}
+
+.instructions-panel {
+  text-align: left;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  overflow: hidden;
+}
+
+.instructions-panel summary {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.instructions-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.instructions-panel summary::after {
+  content: "▾";
+  float: right;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.instructions-panel:not([open]) summary::after {
+  transform: rotate(-90deg);
+}
+
+.instructions-text {
+  padding: 0 14px 12px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
 .subtitle {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  margin-bottom: 18px;
-  line-height: 1.4;
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+  line-height: 1.45;
   text-align: left;
 }
 
 .stat {
-  background: var(--surface);
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 10px 6px;
+  border: 1px solid var(--input-border);
+  box-shadow: 0 2px 6px rgba(107, 92, 231, 0.06);
 }
 
 .stat-label {
@@ -371,12 +437,80 @@ body {
   font-size: 0.68rem;
   color: var(--text-secondary);
   margin-bottom: 4px;
+  font-weight: 600;
 }
 
 .stat-value {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--accent);
+}
+
+.control-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ctrl-btn {
+  flex: 1;
+  border: none;
+  padding: 11px 8px;
+  border-radius: 22px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, filter 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctrl-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.ctrl-btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.ctrl-start {
+  background: var(--btn-start);
+  color: white;
+  box-shadow: 0 4px 12px var(--btn-start-shadow);
+}
+
+.ctrl-start:disabled {
+  opacity: 0.55;
+}
+
+.ctrl-pause {
+  background: var(--btn-pause-bg);
+  color: var(--btn-pause-text);
+  border: 1px solid var(--input-border);
+  box-shadow: none;
+}
+
+.ctrl-pause:not(:disabled) {
+  background: linear-gradient(135deg, #ffa726, #fb8c00);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(251, 140, 0, 0.3);
+}
+
+.ctrl-resume:not(:disabled) {
+  background: linear-gradient(135deg, #42a5f5, #1e88e5);
+  box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3);
+}
+
+.ctrl-restart {
+  background: linear-gradient(135deg, #8b7cf7, #6b5ce7);
+  color: white;
+  box-shadow: 0 4px 12px rgba(107, 92, 231, 0.35);
 }
 
 .action-bar {
@@ -386,6 +520,7 @@ body {
 }
 
 .action-bar button,
+.ctrl-btn,
 .mode-btn,
 .diff-btn,
 .setting-btn,
@@ -398,40 +533,38 @@ body {
   flex: 1;
   color: white;
   border: none;
-  padding: 10px 6px;
-  border-radius: 20px;
-  font-size: 0.76rem;
+  padding: 12px 8px;
+  border-radius: 22px;
+  font-size: 0.8rem;
+  font-weight: 700;
   line-height: 1.25;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, filter 0.15s;
 }
 
 .action-bar button:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.action-bar button:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(-1px);
+  filter: brightness(1.05);
 }
 
 .action-bar button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 #hint-btn {
-  background: linear-gradient(135deg, #ffa726, #fb8c00);
-  box-shadow: 0 4px 12px rgba(251, 140, 0, 0.35);
+  background: linear-gradient(135deg, #ffb74d, #ff9800);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
 }
 
 #shuffle-btn {
-  background: linear-gradient(135deg, #26c6da, #00acc1);
-  box-shadow: 0 4px 12px rgba(0, 172, 193, 0.35);
+  background: linear-gradient(135deg, #4dd0e1, #26c6da);
+  box-shadow: 0 4px 12px rgba(38, 198, 218, 0.3);
 }
 
-#restart-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+.board.board-paused {
+  filter: grayscale(0.25) brightness(0.96);
+  pointer-events: none;
 }
 
 .board-wrapper {
@@ -800,12 +933,13 @@ body.dark-mode .cell.hint {
 
   .action-bar button {
     flex: 1 1 calc(50% - 4px);
-    font-size: 0.68rem;
-    padding: 9px 4px;
+    font-size: 0.72rem;
+    padding: 10px 4px;
   }
 
-  #restart-btn {
-    flex: 1 1 100%;
+  .ctrl-btn {
+    font-size: 0.72rem;
+    padding: 10px 4px;
   }
 
   .board.size-10 {
